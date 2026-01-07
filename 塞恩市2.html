@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>塞恩市档案馆 // 机密档案终端 V9.0</title>
+<style>
+    :root { 
+        --primary: #00f3ff; --secondary: #ff0055; --bg: #050505; --panel: #11111b; --text: #aaffff; --border: #333;
+    }  
+    * { box-sizing: border-box; } 
+    body { 
+        background: var(--bg); color: var(--text); font-family: "Segoe UI", "Microsoft YaHei", monospace; 
+        margin: 0; padding: 0;
+        background-image: linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+        background-size: 30px 30px; min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    }
+    .header { width: 100%; text-align: center; padding: 30px 0 10px; border-bottom: 1px solid #333; background: rgba(5,5,5,0.9); margin-bottom: 30px; }
+    .logo { font-size: 2em; font-weight: 900; letter-spacing: 3px; color: #fff; text-shadow: 2px 2px 0px var(--secondary); } 
+    .subtitle { font-size: 0.9em; color: var(--primary); letter-spacing: 1px; margin-top: 5px; }
+    .main-container { width: 100%; max-width: 1200px; padding: 0 20px 40px; } 
+    .gen-layout { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+    .panel { background: rgba(17, 17, 27, 0.9); padding: 25px; border: 1px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); }  
+    .input-panel { flex: 1; min-width: 350px; }
+    .output-panel { flex: 1.2; min-width: 350px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+
+    /* 表单与输入框 */
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 8px; color: var(--primary); font-size: 0.9em; font-weight: bold; }
+    input, select { width: 100%; padding: 10px; background: #000; border: 1px solid #444; color: #fff; font-family: inherit; }
+    input:focus, select:focus { border-color: var(--secondary); outline: none; }
+    input[type="file"] { border: 1px dashed var(--primary); padding: 10px; cursor: pointer; }
+    input[type="number"] { padding-right: 5px; }
+
+    /* 选项卡系统 */
+    .tab-header { display: flex; margin-bottom: 20px; border-bottom: 1px solid #333; }
+    .tab-btn { flex: 1; padding: 12px; background: transparent; border: none; color: #666; cursor: pointer; font-weight: bold; transition: 0.3s; border-bottom: 2px solid transparent; }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(0, 243, 255, 0.05); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* 六维数据网格 */
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .stat-item label { color: #aaa; font-size: 0.85em; }
+    .stat-item input { border-color: #333; color: var(--primary); font-family: monospace; font-size: 1.1em; }
+
+    /* 按钮 */
+    .btn-group { margin-top: 20px; }
+    .cyber-btn { width: 100%; padding: 15px; background: var(--secondary); color: #fff; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: 0.2s; }
+    .cyber-btn:hover { background: #ff3377; box-shadow: 0 0 15px var(--secondary); } 
+    .download-btn { background: var(--primary); color: #000; margin-top: 10px; width: 100%; }
+    .download-btn:hover { background: #aaffff; box-shadow: 0 0 15px var(--primary); }
+
+    /* 输出区域 */
+    .result-block { width: 100%; display: flex; flex-direction: column; align-items: center; }
+    .generated-image-container { width: 100%; height: 400px; background: #000; border: 2px solid #333; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+    .result-img { max-width: 100%; max-height: 100%; border: 1px solid #fff; box-shadow: 0 0 20px rgba(0,0,0,0.5); display: none; }
+    .canvas-hidden { display: none; }
+    .waiting-text { color: #444; font-family: monospace; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="logo">SION CITY</div>
+    <div class="subtitle">// CLASSIFIED ARCHIVES TERMINAL V9.0</div>
+</div>
+
+<div class="main-container">
+    <div class="gen-layout">
+        <div class="panel input-panel">
+            <div class="tab-header">
+                <button class="tab-btn active" onclick="switchTab('front')">1. 正面: 基础识别</button>
+                <button class="tab-btn" onclick="switchTab('back')">2. 背面: 能力数据</button>
+            </div>
+
+            <div id="tab-front" class="tab-content active">
+                <div class="form-group"><label>上传立绘 (建议 3:4)</label><input type="file" id="heroAvatar" accept="image/*"></div>
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1"><label>代号 (Code Name)</label><input type="text" id="heroCodename" placeholder="例如：幽灵"></div>
+                    <div class="form-group" style="flex:1"><label>真实姓名 (Real Name)</label><input type="text" id="heroRealName" placeholder="例如：李四"></div>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1"><label>性别</label><input type="text" id="heroGender" placeholder="女"></div>
+                    <div class="form-group" style="flex:1"><label>年龄</label><input type="text" id="heroAge" placeholder="24"></div>
+                </div>
+                <div class="form-group"><label>出生地 / 籍贯 (可手动输入)</label>
+                    <input list="placeList" id="heroBirthplace" placeholder="选择或点击输入...">
+                    <datalist id="placeList">
+                        <option value="国际联邦"><option value="塞恩市"><option value="炎国"><option value="东鬼"><option value="冬熊"><option value="雄鹰"><option value="不列颠"><option value="旧世界遗址-东部战区"><option value="卫星城-瓦尔哈拉">
+                    </datalist>
+                </div>
+                <div class="form-group"><label>出生日期</label><input type="date" id="heroBirthday" value="2005-01-01"></div>
+                </div>
+
+             <div id="tab-back" class="tab-content">
+                <h4 style="color:var(--primary); border-bottom:1px dashed #333; padding-bottom:5px; margin-top:0;">// 六维机能 (MAX 300)</h4>
+                <div class="stat-grid">
+                    <div class="stat-item form-group"><label>壮硕 (ROB)</label><input type="number" id="statRob" min="0" max="300" value="150"></div>
+                    <div class="stat-item form-group"><label>反应 (REA)</label><input type="number" id="statRea" min="0" max="300" value="150"></div>
+                    <div class="stat-item form-group"><label>协调 (COO)</label><input type="number" id="statCoo" min="0" max="300" value="150"></div>
+                    <div class="stat-item form-group"><label>精神 (SPI)</label><input type="number" id="statSpi" min="0" max="300" value="150"></div>
+                    <div class="stat-item form-group"><label>爆发 (EXP)</label><input type="number" id="statExp" min="0" max="300" value="150"></div>
+                    <div class="stat-item form-group"><label>幸运 (LUK)</label><input type="number" id="statLuk" min="0" max="300" value="150"></div>
+                </div>
+                
+                <h4 style="color:var(--secondary); border-bottom:1px dashed #333; padding-bottom:5px;">// 特质与职能</h4>
+                 <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1"><label>主要特质 (血统)</label><input type="text" id="traitMain" placeholder="例如：高阶义体化"></div>
+                    <div class="form-group" style="flex:1"><label>次要特质</label><input type="text" id="traitSub" placeholder="例如：网络行者"></div>
+                </div>
+                <div class="form-group"><label>职业 (Occupation)</label><input type="text" id="heroJob" placeholder="例如：自由佣兵"></div>
+                <div class="form-group"><label>擅长业务 (Expertise)</label><input type="text" id="heroExpertise" placeholder="例如：潜入，数据窃取"></div>
+            </div>
+            
+            <div class="btn-group">
+                <button type="button" class="cyber-btn" onclick="generateAll()">>> 启动双重铸造程序 <<</button>
+            </div>
+        </div>
+
+        <div class="panel output-panel">
+            <div class="result-block">
+                <h4 style="color:var(--primary); margin:0 0 10px 0;">// 档案正面 (FRONT)</h4>
+                <div class="generated-image-container" id="container-front">
+                    <span class="waiting-text">[ 等待数据... ]</span>
+                    <img id="result-img-front" class="result-img" alt="角色卡正面">
+                </div>
+                <button class="cyber-btn download-btn" id="dl-front" style="display:none" onclick="downloadImg('front')">下载正面档案</button>
+            </div>
+            <div class="result-block">
+                <h4 style="color:var(--secondary); margin:0 0 10px 0;">// 档案背面 (BACK DATA)</h4>
+                <div class="generated-image-container" id="container-back">
+                    <span class="waiting-text">[ 等待数据... ]</span>
+                    <img id="result-img-back" class="result-img" alt="角色卡背面">
+                </div>
+                <button class="cyber-btn download-btn" id="dl-back" style="display:none" onclick="downloadImg('back')">下载背面数据</button>
+            </div>
+            <canvas id="canvas-front" class="canvas-hidden" width="600" height="400"></canvas>
+            <canvas id="canvas-back" class="canvas-hidden" width="600" height="400"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Tab切换逻辑 ---
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(tb => tb.classList.remove('active'));
+        document.getElementById('tab-' + tabName).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+
+    // --- 配置与工具 ---
+    const CITY_CODES = { "国际联邦": "FED-INT", "塞恩市": "SION-01", "炎国": "YAN-CN", "东鬼": "ONI-JP", "冬熊": "URSUS-RU", "雄鹰": "EAGLE-US", "不列颠": "BRIT-UK", "旧世界遗址-东部战区": "RUIN-86", "卫星城-瓦尔哈拉": "SAT-VH1" };
+
+    function generateCitizenID(place, dateStr) {
+        if (!dateStr) return "ERR-DATA-NULL";
+        let areaCode = CITY_CODES[place] || "UNKNOWN";
+        const dateClean = dateStr.replace(/-/g, '');
+        const randomCode = Math.floor(1000 + Math.random() * 9000);
+        return `${areaCode}-${dateClean}-${randomCode}`;
+    }
+
+    // --- 主生成入口 ---
+    function generateAll() {
+        generateFrontCard();
+        generateBackCard();
+    }
+
+    // =========================================
+    // --- 正面生成逻辑 (Front Card) ---
+    // =========================================
+    function generateFrontCard() {
+        const canvas = document.getElementById('canvas-front');
+        const ctx = canvas.getContext('2d');
+        
+        // 获取数据 (已删除势力和Title)
+        const codename = document.getElementById('heroCodename').value || 'NO NAME';
+        const realname = document.getElementById('heroRealName').value || 'Unknown';
+        const gender = document.getElementById('heroGender').value || '?';
+        const age = document.getElementById('heroAge').value || '?';
+        const birthplace = document.getElementById('heroBirthplace').value || 'Unregistered';
+        const birthday = document.getElementById('heroBirthday').value;
+        const fileInput = document.getElementById('heroAvatar');
+        const idNumber = generateCitizenID(birthplace, birthday);
+
+        // 绘制背景与框架
+        drawCommonBackground(ctx, '#00f3ff');
+
+        // 异步绘制内容
+        if (fileInput.files && fileInput.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => drawFrontContent(ctx, img, codename, realname, gender, age, birthplace, birthday, idNumber);
+                img.onerror = () => drawFrontContent(ctx, null, codename, realname, gender, age, birthplace, birthday, idNumber);
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(fileInput.files[0]);
+        } else {
+            drawFrontContent(ctx, null, codename, realname, gender, age, birthplace, birthday, idNumber);
+        }
+    }
+
+    function drawFrontContent(ctx, img, codename, realname, gender, age, birthplace, birthday, idNumber) {
+        // 绘制头像
+        if (img) {
+            ctx.strokeStyle = '#333'; ctx.lineWidth = 2; ctx.strokeRect(30, 80, 180, 240);
+            drawAvatarCrop(ctx, img, 30, 80, 180, 240);
+            ctx.fillStyle = 'rgba(0, 243, 255, 0.1)'; ctx.fillRect(30, 80, 180, 240); // 扫描蒙版
+        } else {
+            ctx.fillStyle = '#111'; ctx.fillRect(30, 80, 180, 240);
+            ctx.fillStyle = '#333'; ctx.font = '20px Arial'; ctx.fillText("NO IMAGE", 70, 200);
+        }
+
+        // 绘制文字
+        const startX = 240; 
+        ctx.fillStyle = '#444'; ctx.font = 'bold 24px Arial'; ctx.fillText("SION CITY // IDENTITY", startX, 60);
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 50px "Microsoft YaHei"'; ctx.fillText(codename, startX, 120);
+        ctx.fillStyle = '#666'; ctx.font = 'bold 18px "Microsoft YaHei"'; ctx.fillText(`REAL NAME: ${realname}`, startX, 150);
+        
+        ctx.strokeStyle = '#00f3ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(startX, 170); ctx.lineTo(560, 170); ctx.stroke();
+
+        let y = 210; const gap = 35; ctx.font = '16px "Microsoft YaHei"';
+        ctx.fillStyle = '#aaa'; ctx.fillText("基本信息", startX, y);
+        ctx.fillStyle = '#fff'; ctx.fillText(`${gender}  /  ${age}岁`, startX + 90, y);
+        y += gap;
+        ctx.fillStyle = '#aaa'; ctx.fillText("籍贯", startX, y);
+        ctx.fillStyle = '#fff'; ctx.fillText(birthplace, startX + 90, y);
+        y += gap;
+        ctx.fillStyle = '#aaa'; ctx.fillText("出生日期", startX, y);
+        ctx.fillStyle = '#fff'; ctx.fillText(birthday, startX + 90, y);
+
+        y = 350;
+        ctx.fillStyle = '#ff0055'; ctx.font = 'bold 12px Arial'; ctx.fillText("CITIZEN ID NUMBER //", startX, y);
+        y += 25;
+        ctx.fillStyle = '#00f3ff'; ctx.font = 'bold 24px monospace'; ctx.fillText(idNumber, startX, y);
+
+        finalizeOutput('front');
+    }
+
+    // =========================================
+    // --- 背面生成逻辑 (Back Card) ---
+    // =========================================
+    function generateBackCard() {
+        const canvas = document.getElementById('canvas-back');
+        const ctx = canvas.getContext('2d');
+
+        // 获取数据
+        const stats = [
+            parseInt(document.getElementById('statRob').value) || 0,
+            parseInt(document.getElementById('statRea').value) || 0,
+            parseInt(document.getElementById('statCoo').value) || 0,
+            parseInt(document.getElementById('statSpi').value) || 0,
+            parseInt(document.getElementById('statExp').value) || 0,
+            parseInt(document.getElementById('statLuk').value) || 0
+        ];
+        const traitMain = document.getElementById('traitMain').value || '无记录';
+        const traitSub = document.getElementById('traitSub').value || '无记录';
+        const job = document.getElementById('heroJob').value || '未登记';
+        const expertise = document.getElementById('heroExpertise').value || '未评估';
+        const codename = document.getElementById('heroCodename').value || 'UNKNOWN';
+
+        // 绘制背景与框架 (使用红色主题)
+        drawCommonBackground(ctx, '#ff0055');
+
+        // 绘制内容
+        drawBackContent(ctx, stats, traitMain, traitSub, job, expertise, codename);
+        finalizeOutput('back');
+    }
+
+    function drawBackContent(ctx, stats, traitMain, traitSub, job, expertise, codename) {
+        // 标题
+        ctx.fillStyle = '#444'; ctx.font = 'bold 24px Arial'; ctx.fillText("SION CITY // CLASSIFIED DATA", 30, 50);
+        ctx.fillStyle = '#ff0055'; ctx.font = 'bold 16px monospace'; ctx.fillText(`SUBJECT: ${codename.toUpperCase()}`, 30, 75);
+        
+        // --- 绘制雷达图 (左侧) ---
+        const radarCX = 160; const radarCY = 230; const radarR = 110;
+        drawRadarChart(ctx, radarCX, radarCY, radarR, stats);
+
+        // --- 绘制文字信息 (右侧) ---
+        const startX = 320;
+        let y = 100; const gap = 35;
+
+        // 特质区块
+        ctx.fillStyle = '#ff0055'; ctx.font = 'bold 18px "Microsoft YaHei"'; ctx.fillText("// 特质评估 (TRAITS)", startX, y);
+        y += 25; ctx.font = '14px "Microsoft YaHei"';
+        ctx.fillStyle = '#aaa'; ctx.fillText("主要特质/血统:", startX, y);
+        y += 20; ctx.fillStyle = '#fff'; ctx.font = 'bold 16px "Microsoft YaHei"'; ctx.fillText(traitMain, startX, y);
+        y += 30; ctx.font = '14px "Microsoft YaHei"';
+        ctx.fillStyle = '#aaa'; ctx.fillText("次要特质:", startX, y);
+        y += 20; ctx.fillStyle = '#fff'; ctx.fillText(traitSub, startX, y);
+        
+        // 分隔线
+        y += 30; ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(startX, y); ctx.lineTo(570, y); ctx.stroke(); y += 30;
+
+        // 职能区块
+        ctx.fillStyle = '#00f3ff'; ctx.font = 'bold 18px "Microsoft YaHei"'; ctx.fillText("// 职能档案 (FUNCTION)", startX, y);
+        y += 25; ctx.font = '14px "Microsoft YaHei"';
+        ctx.fillStyle = '#aaa'; ctx.fillText(`职业: ${job}`, startX, y);
+        y += 30; 
+        ctx.fillStyle = '#aaa'; ctx.fillText("擅长业务:", startX, y);
+        y += 25; 
+        ctx.fillStyle = '#fff'; ctx.font = '15px "Microsoft YaHei"';
+        wrapText(ctx, expertise, startX, y, 250, 20); // 自动换行
+    }
+
+    // --- 雷达图绘制核心 ---
+    function drawRadarChart(ctx, cx, cy, r, data) {
+        const labels = ["壮硕", "反应", "协调", "精神", "爆发", "幸运"];
+        const maxVal = 300;
+        const angleStep = Math.PI / 3;
+        
+        ctx.save(); ctx.translate(cx, cy);
+
+        // 1. 绘制背景网格 (3层六边形)
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+        for (let level = 1; level <= 3; level++) {
+            const curR = r * (level / 3);
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = i * angleStep - Math.PI / 2; // 从正上方开始
+                ctx.lineTo(curR * Math.cos(angle), curR * Math.sin(angle));
+            }
+            ctx.closePath(); ctx.stroke();
+        }
+        // 绘制轴线
+        ctx.strokeStyle = '#222';
+        for (let i = 0; i < 6; i++) {
+            const angle = i * angleStep - Math.PI / 2;
+            ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(r * Math.cos(angle), r * Math.sin(angle)); ctx.stroke();
+        }
+
+        // 2. 绘制数据区域
+        ctx.beginPath();
+        data.forEach((val, i) => {
+            // 限制最大值300
+            let normalizedVal = Math.min(val, maxVal) / maxVal; 
+            // 至少显示一点点，避免完全重合圆心
+            normalizedVal = Math.max(normalizedVal, 0.05); 
+            const curR = r * normalizedVal;
+            const angle = i * angleStep - Math.PI / 2;
+            const x = curR * Math.cos(angle);
+            const y = curR * Math.sin(angle);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255, 0, 85, 0.4)'; ctx.fill(); // 半透明红色填充
+        ctx.strokeStyle = '#ff0055'; ctx.lineWidth = 2; ctx.stroke();
+
+        // 3. 绘制标签和数值
+        ctx.font = 'bold 14px "Microsoft YaHei"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        labels.forEach((label, i) => {
+            const angle = i * angleStep - Math.PI / 2;
+            const labelR = r + 25;
+            const x = labelR * Math.cos(angle);
+            const y = labelR * Math.sin(angle);
+            ctx.fillStyle = '#aaa'; ctx.fillText(label, x, y - 8);
+            ctx.fillStyle = '#ff0055'; ctx.fillText(data[i], x, y + 8);
+        });
+        ctx.restore();
+    }
+
+    // --- 通用辅助函数 ---
+    // 绘制通用背景和边框
+    function drawCommonBackground(ctx, mainColor) {
+        ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, 600, 400);
+        ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = 1; // 网格
+        for(let i=0;i<600;i+=20){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,400);ctx.stroke();}
+        for(let i=0;i<400;i+=20){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(600,i);ctx.stroke();}
+        // 装饰框
+        ctx.strokeStyle = mainColor; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(20, 100); ctx.lineTo(20, 20); ctx.lineTo(100, 20); ctx.stroke();
+        ctx.strokeStyle = mainColor === '#00f3ff' ? '#ff0055' : '#00f3ff'; // 对角颜色互换
+        ctx.beginPath(); ctx.moveTo(580, 300); ctx.lineTo(580, 380); ctx.lineTo(500, 380); ctx.stroke();
+    }
+
+    // 头像裁剪
+    function drawAvatarCrop(ctx, img, x, y, w, h) {
+        const imgRatio = img.width/img.height; const targetRatio = w/h; let sx,sy,sw,sh;
+        if(imgRatio>targetRatio){ sh=img.height; sw=img.height*targetRatio; sy=0; sx=(img.width-sw)/2; }
+        else{ sw=img.width; sh=img.width/targetRatio; sx=0; sy=(img.height-sh)/2; }
+        ctx.drawImage(img,sx,sy,sw,sh,x,y,w,h);
+    }
+    // 文本自动换行
+    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+        let words = text.split(''); let line = '';
+        for(let n = 0; n < words.length; n++) {
+          let testLine = line + words[n];
+          let metrics = ctx.measureText(testLine);
+          let testWidth = metrics.width;
+          if (testWidth > maxWidth && n > 0) { ctx.fillText(line, x, y); line = words[n]; y += lineHeight; } 
+          else { line = testLine; }
+        }
+        ctx.fillText(line, x, y);
+    }
+
+    // 完成输出并显示图片
+    function finalizeOutput(side) {
+        const canvas = document.getElementById(`canvas-${side}`);
+        const dataURL = canvas.toDataURL('image/png');
+        const imgObj = document.getElementById(`result-img-${side}`);
+        const container = document.getElementById(`container-${side}`);
+        const dlBtn = document.getElementById(`dl-${side}`);
+        
+        imgObj.src = dataURL;
+        imgObj.style.display = 'block';
+        container.querySelector('.waiting-text').style.display = 'none';
+        dlBtn.style.display = 'block';
+    }
+
+    // 下载图片
+    function downloadImg(side) {
+        const canvas = document.getElementById(`canvas-${side}`);
+        const link = document.createElement('a');
+        const codename = document.getElementById('heroCodename').value || 'card';
+        link.download = `SION_ARCHIVE_${codename}_${side.toUpperCase()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
+</script>
+
+</body>
+</html>
