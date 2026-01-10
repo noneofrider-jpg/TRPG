@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SION CITY // V4.0 [TACTICAL COMMAND]</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Orbitron:wght@500;700;900&display=swap');
+
+    :root {
+        --bg: #050508; --panel: rgba(20, 20, 25, 0.95); --border: #444; --text: #e0e0e0; 
+        --highlight: #00f3ff; --accent-pink: #ff0055; --accent-warn: #ff3d00; --log-bg: rgba(0,0,0,0.9);
+        --fs-xs: 11px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 18px;
+        
+        --c-empty: #1a1a20; --c-wall: #4a4a50; --c-water: #00bcd4; --c-mountain: #795548; --c-forest: #4caf50; --c-fence: #ff9800;
+        --u-npc: #e040fb; --u-eny-y: #ffeb3b; --u-eny-r: #f44336; --u-eny-dr: #b71c1c;
+    }
+
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Orbitron', 'Noto Sans SC', sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-size: var(--fs-md); }
+    #file-input { display: none; }
+    
+    input, select, textarea { font-size: 14px !important; padding: 6px !important; border-radius: 4px; font-family: 'Orbitron', 'Noto Sans SC'; }
+    button { font-size: 14px !important; font-family: 'Noto Sans SC'; }
+
+    /* 导航栏 */
+    .navbar { height: 60px; background: #000; border-bottom: 2px solid var(--highlight); flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 15px; z-index: 100; }
+    .app-title { font-size: 22px; font-weight: 900; color: #fff; letter-spacing: 2px; margin-right: auto; text-shadow: 0 0 10px var(--highlight); }
+    .navbar button { background: rgba(255,255,255,0.05); border: 1px solid #555; color: #aaa; padding: 8px 20px; cursor: pointer; font-weight: bold; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px); transition: 0.3s; }
+    .navbar button:hover, .navbar button.active-tab { color: #000; background: var(--highlight); border-color: var(--highlight); transform: translateY(-2px); }
+    .btn-save { border-color: var(--accent-pink) !important; color: var(--accent-pink) !important; }
+    .btn-save:hover { background: var(--accent-pink) !important; color: #fff !important; }
+
+    /* AP 顶部栏 (新功能) */
+    #ap-bar-container { width: 100%; background: rgba(0,0,0,0.8); border-bottom: 1px dashed #333; display: none; padding: 10px 20px; gap: 15px; flex-wrap: wrap; align-items: center; overflow-x: auto; flex-shrink: 0; min-height: 60px; box-sizing: border-box; }
+    .ap-unit-card { background: #111; border: 1px solid #444; padding: 5px 10px; border-radius: 4px; display: flex; align-items: center; gap: 10px; min-width: 140px; }
+    .ap-unit-name { font-size: 12px; font-weight: bold; color: #fff; max-width: 80px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .ap-controls { display: flex; align-items: center; gap: 2px; }
+    .ap-input { width: 25px; background: transparent; border: none; text-align: center; color: #fff; font-weight: bold; font-size: 14px; border-bottom: 1px solid #333; padding: 0 !important; }
+    .ap-input:focus { border-bottom-color: var(--highlight); outline: none; }
+    .ap-label { color: #555; font-size: 10px; font-weight: bold; }
+
+    /* 布局 */
+    .page-wrapper { flex: 1; position: relative; overflow: hidden; display: flex;}
+    .sidebar { width: 380px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10; backdrop-filter: blur(10px); }
+    
+    /* 工具区 */
+    .config-panel { padding: 15px; background: rgba(0,0,0,0.5); border-bottom: 1px solid #555; flex-shrink: 0; }
+    .config-row { display: flex; gap: 15px; margin-bottom: 15px; }
+    .config-input-group { flex: 1; }
+    .config-input-group label { font-size: var(--fs-sm); color: var(--highlight); display: block; margin-bottom: 5px; font-weight: bold;}
+    .config-input-group input { width: 100%; background: #222; border: 1px solid #555; color: #fff; text-align: center; font-weight: bold; }
+    .btn-reset { width: 100%; background: #333; color: #f44336; border: 1px solid #f44336; padding: 10px; cursor: pointer; font-weight: bold; transition: 0.2s;}
+    .btn-reset:hover { background: #f44336; color: #fff; }
+    
+    .tools-container { padding: 20px; overflow-y: auto; flex: 1; }
+    h3 { font-size: var(--fs-md); color: #fff; border-left: 5px solid var(--highlight); padding-left: 12px; margin: 25px 0 12px 0; background: linear-gradient(90deg, rgba(0,243,255,0.1), transparent); line-height: 1.5; }
+    
+    .brush-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .brush-btn { background: #1e1e24; border: 1px solid #555; color: #ccc; padding: 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; border-radius: 6px; transition: 0.2s; }
+    .brush-btn:hover, .brush-btn.active { border-color: var(--highlight); background: rgba(0, 243, 255, 0.15); color: #fff; box-shadow: 0 0 10px rgba(0,243,255,0.1); }
+    
+    .brush-btn.combat-btn { border-color: var(--accent-pink); color: var(--accent-pink); }
+    .brush-btn.combat-btn:hover, .brush-btn.combat-btn.active { background: rgba(255, 0, 85, 0.2); box-shadow: 0 0 15px rgba(255, 0, 85, 0.3); color: #fff; }
+
+    .icon-dot { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; box-shadow: 0 0 5px currentColor;}
+    .btn-text { display: flex; flex-direction: column; }
+    .btn-title { font-size: 14px; font-weight: bold; font-family: 'Noto Sans SC'; }
+    .btn-sub { font-size: 11px; opacity: 0.7; font-family: 'Orbitron'; letter-spacing: 1px; }
+    
+    .player-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+    .player-btn { height: 40px; border: 1px solid #555; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: #000; transition: 0.2s; border-radius: 4px; }
+    .player-btn:hover, .player-btn.active { transform: scale(1.1); border-color: #fff; z-index: 2; box-shadow: 0 0 15px currentColor; }
+
+    .tag-input-container { background: #111; border: 1px solid #555; border-radius: 4px; padding: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }
+    .tag-label { font-size: 12px; color: var(--highlight); font-weight: bold; margin-right: 10px; }
+    .tag-input { background: #000; border: 1px solid #333; color: #fff; width: 80px; text-align: center; font-weight: 900; letter-spacing: 1px; font-size: 16px; }
+
+    /* 视口与地图 */
+    .viewport { flex: 1; background: #000; overflow: auto; position: relative; display: flex; flex-direction: column; }
+    .viewport::before { content: ''; position: absolute; width: 5000px; height: 5000px; background-image: linear-gradient(#1a1a1a 1px, transparent 1px), linear-gradient(90deg, #1a1a1a 1px, transparent 1px); background-size: 50px 50px; opacity: 0.5; pointer-events: none; }
+    
+    svg { margin: 50px; display: block; filter: drop-shadow(0 0 40px rgba(0,0,0,0.8)); z-index: 1; }
+    polygon { fill: var(--c-empty); stroke: #333; stroke-width: 2; cursor: crosshair; transition: fill 0.2s, stroke 0.2s; }
+    polygon:hover { stroke: #fff; stroke-width: 4; }
+    .t-wall { fill: var(--c-wall); } .t-water { fill: var(--c-water); fill-opacity: 0.6; } .t-mountain { fill: var(--c-mountain); } .t-forest { fill: var(--c-forest); } .t-fence { fill: var(--c-empty); stroke: var(--c-fence) !important; stroke-width: 4 !important; stroke-dasharray: 10,5; }
+    
+    /* 战斗高亮样式 */
+    .attack-range { fill: rgba(255, 0, 85, 0.15) !important; stroke: var(--accent-pink) !important; stroke-width: 2 !important; stroke-dasharray: 5; }
+    .attack-impact { fill: rgba(255, 61, 0, 0.5) !important; animation: pulse-red 1.5s infinite; }
+    .attack-target { stroke: #fff !important; stroke-width: 4 !important; stroke-dasharray: 5; animation: dash-select 1s linear infinite; }
+    
+    text.melee-hit { font-size: 40px; text-anchor: middle; dominant-baseline: middle; fill: #fff; filter: drop-shadow(0 0 10px red); animation: pop-up 0.5s ease-out; pointer-events: none; }
+    @keyframes pop-up { 0% { transform: scale(0); } 50% { transform: scale(1.5); } 100% { transform: scale(1); } }
+    @keyframes pulse-red { 0% { fill-opacity: 0.3; } 50% { fill-opacity: 0.7; } 100% { fill-opacity: 0.3; } }
+    @keyframes dash-select { to { stroke-dashoffset: -10; } }
+
+    text.terrain-icon { font-size: 20px; fill: rgba(255,255,255,0.5); pointer-events: none; text-anchor: middle; dominant-baseline: middle; }
+    text.coord-label { font-size: 10px; fill: rgba(255,255,255,0.5); pointer-events: none; text-anchor: middle; font-family: monospace; font-weight: bold; }
+    
+    circle.unit-token { stroke: #fff; stroke-width: 2; pointer-events: none; filter: drop-shadow(0 0 4px #000); transition: 0.2s; }
+    text.unit-label { font-weight: 900; fill: #fff; pointer-events: none; text-anchor: middle; dominant-baseline: middle; text-shadow: 0 0 4px #000, 0 0 2px #000; font-family: 'Noto Sans SC', sans-serif; }
+
+    .move-arrow { stroke: var(--highlight); stroke-width: 3; fill: none; stroke-dasharray: 10; animation: dash 1s linear infinite; pointer-events: none; filter: drop-shadow(0 0 5px var(--highlight)); }
+    @keyframes dash { to { stroke-dashoffset: -20; } }
+
+    .fog-hidden { fill: #000; stroke: #222 !important; }
+    .gm-view .fog-hidden { fill-opacity: 0.7; stroke: var(--highlight) !important; stroke-dasharray: 4,4; }
+    .fog-hidden + .terrain-icon, .fog-hidden + .coord-label + .unit-marker { opacity: 0; }
+    .gm-view .fog-hidden + .terrain-icon { opacity: 0.3; }
+
+    .log-panel { height: 180px; background: var(--log-bg); border-top: 2px solid var(--highlight); position: relative; z-index: 50; display: flex; flex-direction: column; font-family: 'Noto Sans SC', monospace; }
+    .log-header { background: rgba(0,243,255,0.1); padding: 8px 20px; font-size: 14px; color: var(--highlight); font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; }
+    .log-content { flex: 1; overflow-y: auto; padding: 15px; font-size: 13px; color: #ccc; scroll-behavior: smooth; }
+    .log-entry { margin-bottom: 6px; border-left: 3px solid #555; padding-left: 10px; line-height: 1.4; }
+    .log-entry.system { border-color: #555; color: #999; }
+    .log-entry.combat { border-color: var(--accent-pink); color: #ff8a80; background: rgba(255,0,85,0.08); }
+    .log-entry.move { border-color: #ffea00; color: #ffea00; background: rgba(255, 234, 0, 0.05); } 
+    .log-time { color: #666; font-size: 11px; margin-right: 8px; font-family: 'Orbitron'; }
+    
+    .log-input-area { padding: 10px; background: #050505; display: flex; gap: 10px; border-top: 1px solid #333; }
+    .log-input { flex: 1; background: #151515; border: 1px solid #444; color: #fff; padding: 8px; font-family: inherit; font-size: 14px; }
+    .btn-send-log { background: #333; color: #fff; border: 1px solid #555; cursor: pointer; padding: 0 20px; font-size: 13px; font-weight: bold; }
+    .btn-send-log:hover { background: var(--highlight); color: #000; }
+
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 200; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+    .modal-box { background: #1a1a20; border: 2px solid var(--highlight); width: 450px; padding: 20px; box-shadow: 0 0 30px rgba(0,243,255,0.2); }
+    .modal-title { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+    
+    .attack-options { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .atk-btn { background: #222; border: 1px solid #555; padding: 15px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: 0.2s; border-radius: 6px; }
+    .atk-btn:hover { background: rgba(255, 0, 85, 0.1); border-color: var(--accent-pink); color: #fff; }
+    .atk-icon { font-size: 24px; }
+    .atk-label { font-weight: bold; font-family: 'Noto Sans SC'; color: var(--accent-pink); font-size: 12px; }
+    .range-input-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; background: #111; padding: 4px; border-radius: 4px; width: 90%; justify-content: center; }
+    
+    .unit-select-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
+    .unit-select-btn { background: #222; border: 1px solid #444; color: #fff; padding: 12px; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: 0.2s; }
+    .unit-select-btn:hover { background: var(--highlight); color: #000; border-color: var(--highlight); }
+    
+    .btn-cancel { width: 100%; margin-top: 15px; padding: 10px; background: transparent; border: 1px solid #f44336; color: #f44336; cursor: pointer; }
+    .btn-cancel:hover { background: #f44336; color: #fff; }
+    
+    /* 悬浮操作栏 (Paint Mode) */
+    #paint-toolbar { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); background: rgba(20, 20, 25, 0.9); border: 2px solid var(--accent-pink); padding: 10px 20px; z-index: 150; border-radius: 30px; display: none; align-items: center; gap: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
+    .paint-status { color: #fff; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+    .paint-dot { width: 12px; height: 12px; background: var(--accent-pink); border-radius: 50%; animation: pulse-red 1s infinite; }
+    .btn-finish-paint { background: var(--accent-pink); color: #fff; border: none; padding: 5px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+    .btn-finish-paint:hover { background: #fff; color: var(--accent-pink); }
+
+    /* --- V4.0 FIX: 角色面板布局修复 --- */
+    .info-panel { width: 340px; background: rgba(15, 15, 20, 0.98); border-left: 3px solid var(--highlight); position: absolute; right: 0; top: 0; bottom: 180px; z-index: 20; display: none; flex-direction: column; padding: 25px; backdrop-filter: blur(15px); box-shadow: -10px 0 30px #000; overflow: hidden; /* 防止整个面板出现双重滚动条 */ }
+    .info-panel.active { display: flex; animation: slideIn 0.3s ease-out; }
+    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    
+    .info-header-fixed { flex-shrink: 0; margin-bottom: 10px; }
+    .info-title { font-size: 24px; color: var(--highlight); font-weight: 900; font-family: 'Noto Sans SC'; border-bottom: 1px solid #555; padding-bottom: 15px; margin-bottom: 15px;}
+    
+    /* 新增：滚动区域包装器 */
+    .info-scroll-area { flex: 1; overflow-y: auto; padding-right: 5px; margin-bottom: 10px; }
+    /* 美化滚动条 */
+    .info-scroll-area::-webkit-scrollbar { width: 6px; }
+    .info-scroll-area::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+    .info-scroll-area::-webkit-scrollbar-thumb:hover { background: var(--highlight); }
+
+    .info-img-box { width: 100%; aspect-ratio: 1; background: #000; border: 1px solid #444; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 4px; flex-shrink: 0;}
+    .info-img { width: 100%; height: 100%; object-fit: cover; }
+    .info-desc { font-size: 14px; line-height: 1.6; color: #ddd; font-family: 'Noto Sans SC'; white-space: pre-wrap; margin-top: 10px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 4px; }
+    .link-selector { background: #222; color: #fff; border: 1px solid var(--highlight); padding: 8px; width: 100%; margin-bottom: 15px; font-family: 'Noto Sans SC'; font-size: 14px; }
+
+    .info-footer-fixed { flex-shrink: 0; }
+
+    #page-database { width: 100%; height: 100%; display: none; padding: 40px; box-sizing: border-box; overflow-y: auto; }
+    .creator-panel { background: rgba(25, 25, 30, 0.9); border: 1px solid var(--highlight); padding: 30px; margin-bottom: 40px; display: flex; gap: 20px; flex-wrap: wrap; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .form-group label { font-size: 13px; color: var(--highlight); font-weight: bold; margin-bottom: 5px; display: block; }
+    .form-group input, .form-group textarea { background: #111; border: 1px solid #555; color: #fff; padding: 12px; width: 100%; box-sizing: border-box; font-family: 'Noto Sans SC'; font-size: 14px; }
+    .btn-create { background: var(--highlight); color: #000; border: none; padding: 12px 40px; font-weight: 900; font-size: 16px; cursor: pointer; clip-path: polygon(15px 0, 100% 0, 100% 100%, 0 100%, 0 15px); transition: 0.2s; }
+    .btn-create:hover { transform: scale(1.02); box-shadow: 0 0 15px var(--highlight); }
+    .card-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 30px; }
+    .char-card { background: rgba(35, 35, 40, 0.9); border: 1px solid #555; display: flex; height: 180px; position: relative; transition: 0.2s; }
+    .char-card:hover { border-color: #fff; transform: translateY(-3px); }
+    .card-img-box { width: 140px; height: 100%; background: #000; border-right: 1px solid #444; }
+    .card-img { width: 100%; height: 100%; object-fit: cover; }
+    .card-info { padding: 20px; flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    .card-name { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 5px; }
+    .btn-del-card { position: absolute; bottom: 10px; right: 10px; background: #333; color: #aaa; border: 1px solid #555; padding: 5px 10px; cursor: pointer; font-size: 12px; }
+    .btn-del-card:hover { background: #f44336; color: #fff; border-color: #f44336; }
+
+    /* HUD 状态条 */
+    .hud-bar-bg { fill: #000; stroke: none; opacity: 0.8; }
+    .hud-hp-fill { fill: #00e676; transition: width 0.3s ease-out; } 
+    .hud-mp-fill { fill: #00bcd4; transition: width 0.3s ease-out; } 
+    .hud-custom-fill { transition: width 0.3s ease-out; }
+    .hud-hp-fill.critical { fill: #ff0055; animation: pulse-bar 0.5s infinite; }
+    @keyframes pulse-bar { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+    /* 状态条控制行样式 */
+    .status-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; background: #111; padding: 8px; border-radius: 4px; border-left: 2px solid #555; }
+    .status-header { display: flex; justify-content: space-between; align-items: center; }
+    .status-name-input { background: transparent; border: none; color: #fff; font-weight: bold; font-size: 12px; width: 80px; font-family: 'Noto Sans SC'; }
+    .status-inputs { display: flex; align-items: center; gap: 5px; width: 100%; }
+    .inp-num { background: #000; border: 1px solid #333; color: var(--highlight); flex: 1; text-align: center; font-weight: bold; padding: 8px !important; }
+    .inp-num-max { background: #222; border: 1px solid #333; color: #888; flex: 1; text-align: center; font-size: 12px; padding: 8px !important; }
+    .color-picker { width: 20px; height: 20px; border: none; padding: 0; background: none; cursor: pointer; }
+    .btn-del-bar { background: transparent; border: none; color: #666; cursor: pointer; font-size: 14px; }
+    .btn-del-bar:hover { color: #f44336; }
+    .btn-add-bar { width: 100%; background: #222; border: 1px dashed #555; color: #aaa; padding: 8px; cursor: pointer; font-size: 12px; margin-top: 10px; }
+    .btn-add-bar:hover { border-color: var(--highlight); color: var(--highlight); }
+</style>
+</head>
+<body>
+
+<input type="file" id="file-input" accept=".json" onchange="handleFileSelect(event)">
+
+<div id="paint-toolbar">
+    <div class="paint-status"><div class="paint-dot"></div> 自定义AOE模式：点击格子以标记范围</div>
+    <button class="btn-finish-paint" onclick="finishCustomAttack()">✅ 完成攻击</button>
+</div>
+
+<div class="modal-overlay" id="unit-selector-modal">
+    <div class="modal-box">
+        <div class="modal-title">战术选择：请指定单位</div>
+        <div class="unit-select-list" id="unit-selector-list"></div>
+        <button class="btn-cancel" onclick="closeModal('unit-selector-modal')">取消操作</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="attack-config-modal">
+    <div class="modal-box" style="border-color: var(--accent-pink);">
+        <div class="modal-title" style="color:var(--accent-pink)">⚔️ 攻击宣言</div>
+        
+        <div class="attack-options">
+            <div class="atk-btn" onclick="confirmAttackConfig('single')">
+                <div class="atk-icon">🏹</div>
+                <div class="atk-label">精确打击</div>
+                <div class="range-input-group" onclick="event.stopPropagation()">
+                    <label style="font-size:10px; color:#888;">射程</label>
+                    <input type="number" id="atk-range-single" value="3" style="width:30px;">
+                </div>
+            </div>
+            <div class="atk-btn" onclick="confirmAttackConfig('aoe')">
+                <div class="atk-icon">💣</div>
+                <div class="atk-label">圆形轰炸</div>
+                <div class="range-input-group" onclick="event.stopPropagation()">
+                    <label style="font-size:10px; color:#888;">投掷</label>
+                    <input type="number" id="atk-range-aoe" value="5" style="width:25px;">
+                    <label style="font-size:10px; color:#888;">半径</label>
+                    <input type="number" id="atk-radius-aoe" value="1" style="width:25px;">
+                </div>
+            </div>
+            <div class="atk-btn" onclick="confirmAttackConfig('custom')">
+                <div class="atk-icon">🎨</div>
+                <div class="atk-label">自定义/扇形</div>
+                <div style="font-size:10px; color:#666; margin-top:5px;">手选受击范围</div>
+            </div>
+        </div>
+
+        <div style="font-size:12px; color:#666; text-align:center;">选择模式后点击地图确认目标</div>
+        <button class="btn-cancel" onclick="closeModal('attack-config-modal')">取消</button>
+    </div>
+</div>
+
+<div class="navbar">
+    <div class="app-title">COMMANDER <span style="font-weight:400; font-size:16px; color:var(--highlight);">// V4.0 TACTICAL COMMAND</span></div>
+    
+    <div style="display: flex; gap: 10px; margin-right: auto;">
+        <button class="btn-save" onclick="toggleAPMode()" id="btn-toggle-ap" style="border-color:#ffeb3b; color:#ffeb3b;">⚡ AP系统: OFF</button>
+        <button class="btn-save" onclick="downloadJSON()">📥 导出数据</button>
+        <button class="btn-save" onclick="document.getElementById('file-input').click()">📤 读取数据</button>
+    </div>
+
+    <button onclick="switchPage('map')" id="btn-map" class="active-tab">🗺️ 战术地图</button>
+    <button onclick="switchPage('db')" id="btn-db">📇 角色图鉴</button>
+</div>
+
+<div id="ap-bar-container"></div>
+
+<div class="page-wrapper">
+    <div id="page-map" style="width:100%; height:100%; display:flex;">
+        <div class="sidebar">
+            <div class="config-panel">
+               <div class="config-row">
+                    <div class="config-input-group"><label>宽度 (COLS)</label><input type="number" id="inp-cols" value="20"></div>
+                    <div class="config-input-group"><label>高度 (ROWS)</label><input type="number" id="inp-rows" value="15"></div>
+                    <div class="config-input-group">
+                        <label>形状 (GRID)</label>
+                        <select id="inp-type" style="width:100%; background:#222; border:1px solid #555; color:#fff; padding:8px; font-family:'Orbitron'; font-weight:bold;">
+                            <option value="hex">六边形 ⬡</option>
+                            <option value="square">四边形 ⬜</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn-reset" onclick="confirmReset()">⚠ 重置地图 / 应用尺寸</button>
+            </div>
+
+            <div class="tools-container">
+                <div class="brush-grid" style="margin-bottom: 25px;">
+                    <div class="brush-btn active" id="btn-cursor" onclick="setTool('cursor', 'select')" style="background: #000; border: 2px solid #fff; color: #fff; height: 50px;">
+                        <span style="font-size: 24px;">👆</span>
+                        <div class="btn-text"><div class="btn-title">查看</div><div class="btn-sub">SELECT</div></div>
+                    </div>
+                    <div class="brush-btn" id="btn-move" onclick="setTool('move', 'move')" style="background: #000; border: 2px solid var(--highlight); color: var(--highlight); height: 50px;">
+                        <span style="font-size: 24px;">⮂</span>
+                        <div class="btn-text"><div class="btn-title">移动</div><div class="btn-sub">TACTICAL</div></div>
+                    </div>
+                    <div class="brush-btn combat-btn" id="btn-attack" onclick="setTool('attack', 'attack')" style="grid-column: span 2; height: 50px;">
+                        <span style="font-size: 24px;">⚔️</span>
+                        <div class="btn-text"><div class="btn-title">发动攻击</div><div class="btn-sub">COMBAT</div></div>
+                    </div>
+                </div>
+
+                <div class="tag-input-container">
+                    <div class="tag-label">🏷️ 自定义标识 (TAG)</div>
+                    <input type="text" id="inp-unit-tag" class="tag-input" maxlength="2" placeholder="AB">
+                </div>
+
+                <h3>玩家单位 (PLAYERS)</h3>
+                <div class="player-grid" id="player-tools"></div>
+
+                <h3>战争迷雾 (FOG)</h3>
+                <div class="brush-grid">
+                    <div class="brush-btn" onclick="setTool('fog', 'add')"><span class="icon-dot" style="background:#000; border:1px solid #555;"></span><div class="btn-text"><div class="btn-title">添加迷雾</div><div class="btn-sub">HIDE</div></div></div>
+                    <div class="brush-btn" onclick="setTool('fog', 'clear')"><span class="icon-dot" style="background:#fff"></span><div class="btn-text"><div class="btn-title">清除迷雾</div><div class="btn-sub">REVEAL</div></div></div>
+                    <div class="brush-btn" onclick="toggleFogVisibility()" id="btn-toggle-fog" style="grid-column: span 2; justify-content: center; color:var(--highlight); border-color:var(--highlight); font-weight:bold;">
+                        👁️ 预览迷雾 (GM/PL 切换)
+                    </div>
+                </div>
+
+                <h3>单位部署 (DEPLOY)</h3>
+                <div class="brush-grid">
+                    <div class="brush-btn" onclick="setTool('unit', 'npc')"><span class="icon-dot" style="background:var(--u-npc)"></span><div class="btn-text"><div class="btn-title">NPC</div><div class="btn-sub">NEUTRAL</div></div></div>
+                    <div class="brush-btn" onclick="setTool('unit', 'enemy_y')"><span class="icon-dot" style="background:var(--u-eny-y)"></span><div class="btn-text"><div class="btn-title">杂兵</div><div class="btn-sub">LIGHT</div></div></div>
+                    <div class="brush-btn" onclick="setTool('unit', 'enemy_r')"><span class="icon-dot" style="background:var(--u-eny-r)"></span><div class="btn-text"><div class="btn-title">精英</div><div class="btn-sub">ELITE</div></div></div>
+                    <div class="brush-btn" onclick="setTool('unit', 'enemy_dr')"><span class="icon-dot" style="background:var(--u-eny-dr)"></span><div class="btn-text"><div class="btn-title">首领</div><div class="btn-sub">BOSS</div></div></div>
+                    <div class="brush-btn" onclick="setTool('unit', 'delete')" style="border-color:#f44336; color:#f44336;"><span>✖</span><div class="btn-text"><div class="btn-title">删除</div><div class="btn-sub">DELETE</div></div></div>
+                </div>
+
+                <h3>地形工具 (TERRAIN)</h3>
+                <div class="brush-grid">
+                    <div class="brush-btn" onclick="setTool('terrain', 'empty')"><span class="icon-dot" style="border:1px solid #666"></span><div class="btn-text"><div class="btn-title">空地</div><div class="btn-sub">CLEAR</div></div></div>
+                    <div class="brush-btn" onclick="setTool('terrain', 'wall')"><span class="icon-dot" style="background:var(--c-wall)"></span><div class="btn-text"><div class="btn-title">墙壁</div><div class="btn-sub">WALL</div></div></div>
+                    <div class="brush-btn" onclick="setTool('terrain', 'water')"><span class="icon-dot" style="background:var(--c-water)"></span><div class="btn-text"><div class="btn-title">水域</div><div class="btn-sub">WATER</div></div></div>
+                    <div class="brush-btn" onclick="setTool('terrain', 'mountain')"><span class="icon-dot" style="background:var(--c-mountain)"></span><div class="btn-text"><div class="btn-title">高山</div><div class="btn-sub">MOUNTAIN</div></div></div>
+                </div>
+                
+                <div style="margin-top:20px; font-size:14px; color:#888; text-align:center;">当前工具: <span id="tool-label" style="color:var(--highlight); font-weight:bold;">指针 (SELECT)</span></div>
+            </div>
+        </div>
+        
+        <div class="viewport" id="viewport-container">
+            <div id="viewport" style="flex:1;"></div>
+            
+            <div class="log-panel">
+                <div class="log-header">
+                    <span>TERMINAL_LOG // SION_NET</span>
+                    <span style="opacity:0.7; cursor:pointer; font-size:12px;" onclick="document.getElementById('log-content').innerHTML='';">CLEAR LOG</span>
+                </div>
+                <div class="log-content" id="log-content">
+                    <div class="log-entry system"><span class="log-time">SYS</span>System initialized. V4.0 Tactical Command Loaded.</div>
+                </div>
+                <div class="log-input-area">
+                    <input type="text" class="log-input" id="log-input" placeholder="输入自定义消息 (Enter发送)..." onkeypress="if(event.key==='Enter') sendCustomLog()">
+                    <button class="btn-send-log" onclick="sendCustomLog()">SEND</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-panel" id="info-panel">
+            <div class="info-header-fixed">
+                <div class="info-title">单位信息</div>
+                <label style="font-size:12px; color:#888; margin-bottom:5px; display:block;">MAP UNIT NAME</label>
+                <input type="text" id="info-name-input" style="background:#111; color:#fff; border:1px solid #555; width:100%; padding:10px; margin-bottom:10px; font-weight:bold;" onchange="renameUnit(this.value)">
+            </div>
+            
+            <div class="info-scroll-area">
+                <div id="status-bars-container" style="background:#000; padding:10px; border:1px solid #333; margin-bottom:10px; border-radius:4px;">
+                    </div>
+                <button class="btn-add-bar" onclick="addCustomBar()">+ 添加自定义状态条</button>
+
+                <label style="font-size:12px; color:var(--highlight); margin-bottom:5px; margin-top:20px; display:block;">🔗 LINK DATABASE</label>
+                <select id="link-selector" class="link-selector" onchange="linkUnit(this.value)">
+                    <option value="">-- 未关联 --</option>
+                </select>
+
+                <div class="info-img-box" id="info-img-container"><div class="no-img" style="color:#555">NO DATA</div></div>
+                <div style="margin-bottom:15px; display:flex; align-items:center;">
+                    <span id="info-faction" style="background:#333; padding:4px 8px; font-size:14px; font-weight:bold; border-radius:4px; margin-right:10px;">UNK</span> 
+                    <span id="info-hp" style="color:var(--highlight); font-size:16px; font-weight:bold;">HP: ?</span>
+                </div>
+                <div class="info-desc" id="info-desc"></div>
+            </div>
+
+            <div class="info-footer-fixed">
+                <button onclick="document.getElementById('info-panel').classList.remove('active')" style="background:transparent; border:1px solid #555; color:#fff; padding:10px; cursor:pointer; width:100%;">关闭面板</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-database">
+        <div class="creator-panel">
+            <div class="form-group" style="flex:0 0 120px"><label>图片 (IMG)</label><input type="file" id="db-img" accept="image/*" style="font-size:12px; height:46px;"></div>
+            <div class="form-group" style="flex:1;"><label>名称 (NAME)</label><input type="text" id="db-name" placeholder="与地图单位匹配"></div>
+            <div class="form-group" style="flex:0 0 120px;"><label>HP</label><input type="text" id="db-hp" placeholder="100"></div>
+            <div class="form-group" style="flex:0 0 180px;"><label>阵营 (FACTION)</label><input type="text" id="db-faction" placeholder="Faction"></div>
+            <div class="form-group" style="flex-basis: 100%;"><label>简介 (DESC)</label><textarea id="db-desc" style="height:100px;" placeholder="详细资料..."></textarea></div>
+            <button class="btn-create" onclick="addCharacter()">+ 创建档案</button>
+        </div>
+        <div class="card-gallery" id="card-gallery"></div>
+    </div>
+</div>
+
+<script>
+    let mapConfig = { cols: 20, rows: 15, type: 'hex' };
+    let currentMode = 'cursor'; 
+    let currentBrush = 'select';
+    let terrainData = {}; 
+    let fogData = {}; 
+    let units = []; 
+    let database = []; 
+    let unitCounter = 1;
+    const hexSize = 35;
+    let selectedUnitId = null; 
+    let isGmView = true; 
+    let moveSourceUnit = null; 
+    
+    // 战斗变量
+    let attackerUnit = null;
+    let attackConfig = null; 
+    let isPaintingCustom = false; 
+    let customPaintOrigin = null; 
+    
+    // AP System
+    let apMode = false;
+
+    const colorMap = { 'npc': 'var(--u-npc)', 'enemy_y': 'var(--u-eny-y)', 'enemy_r': 'var(--u-eny-r)', 'enemy_dr': 'var(--u-eny-dr)' };
+    const nameMap = { 'npc': 'NPC', 'enemy_y': 'Soldier', 'enemy_r': 'Elite', 'enemy_dr': 'BOSS' };
+    const playerColors = ['#00e5ff', '#76ff03', '#ffea00', '#ff3d00', '#d500f9', '#2979ff', '#1de9b6', '#ff9100', '#f50057', '#ffffff'];
+
+    window.onload = function() { initPlayerTools(); initMap(); addLog("System", "V4.0 Tactical System ready."); toggleFogVisibility(true); };
+
+    function initPlayerTools() {
+        const container = document.getElementById('player-tools');
+        playerColors.forEach((color, index) => {
+            const btn = document.createElement('div');
+            btn.className = 'player-btn'; btn.style.backgroundColor = color; btn.innerText = `P${index + 1}`;
+            if (['#ffffff', '#ffea00', '#76ff03'].includes(color)) btn.style.color = '#000'; else btn.style.color = '#fff';
+            btn.onclick = (e) => setTool('unit', `player_${index}`);
+            container.appendChild(btn);
+        });
+    }
+
+    function getCellGeometry(q, r) {
+        const size = hexSize;
+        let x, y;
+        if (mapConfig.type === 'square') {
+            const cellSize = size * 1.8;
+            x = (q * cellSize) + (cellSize / 2) + 30; 
+            y = (r * cellSize) + (cellSize / 2) + 30;
+            return { x, y, width: cellSize, height: cellSize };
+        } else {
+            const hexW = Math.sqrt(3) * size;
+            const hexH = 2 * size;
+            x = (q * hexW) + ((r % 2) * (hexW / 2)) + (hexW / 2) + 30;
+            y = (r * (hexH * 0.75)) + size + 30;
+            return { x, y, width: hexW, height: hexH };
+        }
+    }
+
+    function getDistance(q1, r1, q2, r2) {
+        if (mapConfig.type === 'square') {
+            return Math.abs(q1 - q2) + Math.abs(r1 - r2); 
+        } else {
+            const x1 = q1, z1 = r1, y1 = -q1 - r1;
+            const x2 = q2, z2 = r2, y2 = -q2 - r2;
+            return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
+        }
+    }
+
+    function confirmReset() {
+        if(confirm("确定要重置地图吗？(这会清空当前绘制)")) {
+            const c = parseInt(document.getElementById('inp-cols').value);
+            const r = parseInt(document.getElementById('inp-rows').value);
+            if(c && r) {
+                mapConfig.cols = c; mapConfig.rows = r;
+                mapConfig.type = document.getElementById('inp-type').value || 'hex';
+                terrainData = {}; units = []; fogData = {}; 
+                unitCounter = 1;
+                moveSourceUnit = null; attackerUnit = null;
+                initMap();
+                addLog("System", `Map reset to ${mapConfig.cols}x${mapConfig.rows} (${mapConfig.type.toUpperCase()}).`);
+            }
+        }
+    }
+
+    function initMap() {
+        const container = document.getElementById('viewport'); 
+        container.innerHTML = '';
+        const svgNS = "http://www.w3.org/2000/svg";
+        
+        const lastCell = getCellGeometry(mapConfig.cols, mapConfig.rows);
+        const w = lastCell.x + 100;
+        const h = lastCell.y + 100;
+
+        const svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("width", w); svg.setAttribute("height", h);
+        if(isGmView) svg.classList.add('gm-view');
+
+        const defs = document.createElementNS(svgNS, "defs");
+        const marker = document.createElementNS(svgNS, "marker");
+        marker.setAttribute("id", "arrowhead");
+        marker.setAttribute("markerWidth", "10");
+        marker.setAttribute("markerHeight", "7");
+        marker.setAttribute("refX", "9"); 
+        marker.setAttribute("refY", "3.5");
+        marker.setAttribute("orient", "auto");
+        const polygon = document.createElementNS(svgNS, "polygon");
+        polygon.setAttribute("points", "0 0, 10 3.5, 0 7");
+        polygon.setAttribute("fill", "var(--accent-pink)");
+        marker.appendChild(polygon);
+        defs.appendChild(marker);
+        svg.appendChild(defs);
+
+        for (let r = 0; r < mapConfig.rows; r++) {
+            for (let q = 0; q < mapConfig.cols; q++) {
+                
+                const geom = getCellGeometry(q, r);
+                const { x, y } = geom;
+                
+                let points = "";
+                
+                if (mapConfig.type === 'square') {
+                    const half = geom.width / 2;
+                    points += `${x-half},${y-half} ${x+half},${y-half} ${x+half},${y+half} ${x-half},${y+half}`;
+                } else {
+                    for (let i = 0; i < 6; i++) { 
+                        const angle = Math.PI / 180 * (60 * i - 30); 
+                        points += `${x + hexSize * Math.cos(angle)},${y + hexSize * Math.sin(angle)} `; 
+                    }
+                }
+
+                const hex = document.createElementNS(svgNS, "polygon");
+                hex.setAttribute("points", points); 
+                hex.setAttribute("class", "t-empty"); 
+                hex.id = `hex-${q}-${r}`; 
+                hex.onmousedown = () => handleHexClick(q, r);
+                hex.onmouseover = (e) => { 
+                    if(e.buttons===1 && currentMode !== 'move' && currentMode !== 'attack') handleHexClick(q, r); 
+                    if(currentMode === 'attack' && attackerUnit && attackConfig && attackConfig.type === 'aoe' && !isPaintingCustom) {
+                        previewAOE(q, r);
+                    }
+                };
+                
+                const icon = document.createElementNS(svgNS, "text");
+                icon.setAttribute("x", x); icon.setAttribute("y", y); 
+                icon.setAttribute("class", "terrain-icon"); 
+                icon.id = `icon-${q}-${r}`;
+                
+                const coord = document.createElementNS(svgNS, "text");
+                const labelOffset = mapConfig.type === 'square' ? geom.height/2 - 5 : hexSize - 12;
+                coord.setAttribute("x", x); 
+                coord.setAttribute("y", y - labelOffset); 
+                coord.setAttribute("class", "coord-label"); 
+                coord.textContent = `${q},${r}`;
+                
+                svg.appendChild(hex); svg.appendChild(icon); svg.appendChild(coord);
+            }
+        }
+        
+        const arrowLayer = document.createElementNS(svgNS, "g");
+        arrowLayer.id = "arrow-layer";
+        svg.appendChild(arrowLayer);
+        
+        const effectLayer = document.createElementNS(svgNS, "g");
+        effectLayer.id = "effect-layer";
+        svg.appendChild(effectLayer);
+
+        const unitLayer = document.createElementNS(svgNS, "g"); 
+        unitLayer.id = "unit-layer"; 
+        svg.appendChild(unitLayer);
+        
+        container.appendChild(svg);
+        restoreTerrainVisuals(); 
+        renderUnits();
+    }
+
+    let cycleIndex = 0; let lastClickPos = ""; 
+
+    function handleHexClick(q, r) {
+        if (isPaintingCustom) {
+            const hex = document.getElementById(`hex-${q}-${r}`);
+            if (hex) {
+                if (!customPaintOrigin) {
+                    customPaintOrigin = {q, r};
+                    drawAttackEffect(attackerUnit.q, attackerUnit.r, q, r, 'arrow-only');
+                    hex.classList.add('attack-impact');
+                } else {
+                    hex.classList.toggle('attack-impact');
+                }
+            }
+            return;
+        }
+
+        if (currentMode === 'attack') {
+            const stack = units.filter(u => u.q === q && u.r === r);
+            if (!attackerUnit) {
+                if (stack.length === 0) { addLog("System", "Choose a unit to attack."); return; }
+                if (stack.length > 1) { openUnitSelector(stack, 'attack'); return; }
+                attackerUnit = stack[0];
+                document.getElementById('attack-config-modal').style.display = 'flex';
+                highlightSelection(q, r, 'var(--accent-pink)');
+                return;
+            }
+
+            if (attackerUnit && attackConfig && attackConfig.type !== 'custom') {
+                const dist = getDistance(attackerUnit.q, attackerUnit.r, q, r);
+                restoreTerrainVisuals();
+                if (dist > attackConfig.range) { addLog("System", "Target out of range!"); return; }
+
+                if (attackConfig.type === 'single') {
+                    if (stack.length > 0) {
+                        const target = stack[0]; 
+                        drawAttackEffect(attackerUnit.q, attackerUnit.r, q, r, 'single');
+                        addLog("Combat", `[${attackerUnit.name}] attacks [${target.name}] (Range ${dist}).`);
+                    } else {
+                        drawAttackEffect(attackerUnit.q, attackerUnit.r, q, r, 'single'); 
+                        addLog("Combat", `[${attackerUnit.name}] attacks ground at [${q},${r}].`);
+                    }
+                } else if (attackConfig.type === 'aoe') {
+                    drawAttackEffect(attackerUnit.q, attackerUnit.r, q, r, 'aoe', attackConfig.radius);
+                    addLog("Combat", `[${attackerUnit.name}] launches AOE at [${q},${r}].`);
+                }
+                
+                attackerUnit = null; attackConfig = null;
+                return;
+            }
+        }
+
+        if (currentMode === 'move') {
+            const stack = units.filter(u => u.q === q && u.r === r);
+            if (!moveSourceUnit) {
+                if (stack.length === 0) return;
+                if (stack.length === 1) {
+                    moveSourceUnit = stack[0];
+                    addLog("Move", `Selected [${moveSourceUnit.name}]. Click destination.`);
+                    highlightSelection(q, r);
+                } else {
+                    openUnitSelector(stack, 'move');
+                }
+                return;
+            }
+
+            if (moveSourceUnit) {
+                const oldQ = moveSourceUnit.q, oldR = moveSourceUnit.r;
+                if (oldQ === q && oldR === r) {
+                    addLog("System", "Move cancelled.");
+                    moveSourceUnit = null; restoreTerrainVisuals(); return;
+                }
+                
+                moveSourceUnit.q = q; moveSourceUnit.r = r;
+                drawMovementArrow(oldQ, oldR, q, r);
+                renderUnits();
+                addLog("Move", `Unit [${moveSourceUnit.name}] moved to [${q},${r}].`);
+                moveSourceUnit = null; restoreTerrainVisuals(); 
+            }
+            return;
+        }
+
+        if (currentMode === 'fog') {
+            const key = `${q},${r}`;
+            if (currentBrush === 'add') { if(!fogData[key]) { fogData[key] = true; updateHexVisual(q, r); } }
+            else { if(fogData[key]) { delete fogData[key]; updateHexVisual(q, r); } }
+            return;
+        }
+
+        if (currentMode === 'terrain') {
+            const key = `${q},${r}`;
+            if (terrainData[key] !== currentBrush) { terrainData[key] = currentBrush; updateHexVisual(q, r); }
+            return;
+        }
+
+        if (currentMode === 'cursor') {
+            const stack = units.filter(u => u.q === q && u.r === r);
+            if (stack.length === 0) return;
+            if (lastClickPos !== `${q},${r}`) { cycleIndex = 0; lastClickPos = `${q},${r}`; }
+            else { cycleIndex = (cycleIndex + 1) % stack.length; }
+            selectedUnitId = stack[cycleIndex].id;
+            updateInfoPanel(stack[cycleIndex]);
+            return;
+        }
+
+        if (currentBrush === 'delete') {
+            const stackIdx = units.map((u, i) => u.q === q && u.r === r ? i : -1).filter(i => i !== -1).pop();
+            if (stackIdx !== undefined) { 
+                const removed = units[stackIdx];
+                units.splice(stackIdx, 1); renderUnits(); 
+                document.getElementById('info-panel').classList.remove('active');
+                addLog("Combat", `Unit [${removed.name}] removed from [${q},${r}]`);
+            }
+            return;
+        }
+
+        let uType = currentBrush;
+        let uTag = document.getElementById('inp-unit-tag').value.trim().substring(0, 2); 
+        let uName = "";
+        
+        if (uType.startsWith('player_')) {
+            const idx = parseInt(uType.split('_')[1]) + 1;
+            uName = `P${idx}`; if(uTag) uName += ` (${uTag})`;
+        } else {
+            uName = `${nameMap[uType]}`; if(uTag) uName += ` (${uTag})`; uName += ` #${unitCounter++}`;
+        }
+
+        let displayTag = uTag; 
+        if (!displayTag) {
+            if (uType.startsWith('player_')) displayTag = "PL";
+            else if (uType === 'npc') displayTag = "NPC";
+            else displayTag = (unitCounter - 1).toString();
+        }
+
+        // 初始化：HP/MP + AP + 自定义条
+        units.push({ 
+            id: Date.now(), type: uType, q, r, name: uName, tag: displayTag, linkedDbId: null,
+            hp: 100, max_hp: 100, mp: 100, max_mp: 100,
+            ap: 4, max_ap: 4, // 默认 AP
+            custom_bars: [] 
+        });
+        renderUnits();
+        addLog("Combat", `Deployed [${uName}] at [${q},${r}]`);
+    }
+
+    function confirmAttackConfig(type) {
+        let range = 1; let radius = 0;
+        
+        if (type === 'custom') {
+            attackConfig = { type: 'custom' };
+            closeModal('attack-config-modal');
+            isPaintingCustom = true;
+            customPaintOrigin = null;
+            document.getElementById('paint-toolbar').style.display = 'flex';
+            clearCombatVisuals();
+            restoreTerrainVisuals();
+            addLog("System", "Custom AOE Mode: Click tiles to paint area.");
+            return;
+        }
+
+        if (type === 'single') range = parseInt(document.getElementById('atk-range-single').value);
+        else {
+            range = parseInt(document.getElementById('atk-range-aoe').value);
+            radius = parseInt(document.getElementById('atk-radius-aoe').value);
+        }
+
+        attackConfig = { type, range, radius };
+        closeModal('attack-config-modal');
+        showAttackRangeOverlay(attackerUnit.q, attackerUnit.r, range);
+        addLog("System", `Attack mode: ${type.toUpperCase()}. Select target.`);
+    }
+
+    function finishCustomAttack() {
+        isPaintingCustom = false;
+        document.getElementById('paint-toolbar').style.display = 'none';
+        attackerUnit = null; attackConfig = null; customPaintOrigin = null;
+        addLog("Combat", "Custom AOE attack executed.");
+    }
+
+    function showAttackRangeOverlay(cq, cr, range) {
+        for (let r = 0; r < mapConfig.rows; r++) {
+            for (let q = 0; q < mapConfig.cols; q++) {
+                if (getDistance(cq, cr, q, r) <= range) {
+                    const hex = document.getElementById(`hex-${q}-${r}`);
+                    if (hex) hex.classList.add('attack-range');
+                }
+            }
+        }
+    }
+
+    function previewAOE(targetQ, targetR) {
+        document.querySelectorAll('.attack-impact').forEach(el => el.classList.remove('attack-impact'));
+        if (!attackConfig) return;
+        const radius = attackConfig.radius;
+        for (let r = 0; r < mapConfig.rows; r++) {
+            for (let q = 0; q < mapConfig.cols; q++) {
+                if (getDistance(targetQ, targetR, q, r) <= radius) {
+                    const hex = document.getElementById(`hex-${q}-${r}`);
+                    if (hex) hex.classList.add('attack-impact');
+                }
+            }
+        }
+    }
+
+    function clearCombatVisuals() {
+        document.getElementById('arrow-layer').innerHTML = '';
+        document.getElementById('effect-layer').innerHTML = '';
+    }
+
+    function drawAttackEffect(q1, r1, q2, r2, type, radius=0) {
+        const arrowLayer = document.getElementById('arrow-layer');
+        const effectLayer = document.getElementById('effect-layer');
+        const isMelee = (q1 === q2 && r1 === r2);
+
+        if (type === 'single' || type === 'arrow-only') {
+            const geo = getCellGeometry(q2, r2);
+            if (isMelee && type !== 'arrow-only') {
+                const svgNS = "http://www.w3.org/2000/svg";
+                const text = document.createElementNS(svgNS, "text");
+                text.setAttribute("x", geo.x); text.setAttribute("y", geo.y); 
+                text.setAttribute("class", "melee-hit"); text.textContent = "⚔️";
+                effectLayer.appendChild(text);
+            } else {
+                const start = getCellGeometry(q1, r1);
+                const end = getCellGeometry(q2, r2);
+                const svgNS = "http://www.w3.org/2000/svg";
+                const line = document.createElementNS(svgNS, "line");
+                line.setAttribute("x1", start.x); line.setAttribute("y1", start.y);
+                line.setAttribute("x2", end.x); line.setAttribute("y2", end.y);
+                line.setAttribute("class", "move-arrow");
+                line.style.stroke = "var(--accent-pink)"; 
+                line.setAttribute("marker-end", "url(#arrowhead)");
+                arrowLayer.appendChild(line);
+            }
+        } 
+        
+        if (type === 'aoe') {
+             for (let r = 0; r < mapConfig.rows; r++) {
+                for (let q = 0; q < mapConfig.cols; q++) {
+                    if (getDistance(q2, r2, q, r) <= radius) {
+                        const hex = document.getElementById(`hex-${q}-${r}`);
+                        if (hex) hex.classList.add('attack-impact');
+                    }
+                }
+            }
+        }
+    }
+
+    function openUnitSelector(stack, purpose) {
+        const modal = document.getElementById('unit-selector-modal');
+        const list = document.getElementById('unit-selector-list');
+        list.innerHTML = '';
+        stack.forEach(unit => {
+            const btn = document.createElement('div');
+            btn.className = 'unit-select-btn';
+            let typeLabel = unit.type;
+            if(typeLabel.startsWith('player')) typeLabel = "PLAYER";
+            else if(nameMap[typeLabel]) typeLabel = nameMap[typeLabel].toUpperCase();
+            btn.innerHTML = `<span>${unit.name}</span> <span style="font-size:10px; color:#888; background:#333; padding:2px 5px;">${typeLabel}</span>`;
+            btn.onclick = () => {
+                if (purpose === 'move') {
+                    moveSourceUnit = unit;
+                    addLog("Move", `Selected [${moveSourceUnit.name}] from stack. Click destination.`);
+                    highlightSelection(unit.q, unit.r);
+                } else if (purpose === 'attack') {
+                    attackerUnit = unit;
+                    closeModal('unit-selector-modal');
+                    document.getElementById('attack-config-modal').style.display = 'flex';
+                    highlightSelection(unit.q, unit.r, 'var(--accent-pink)');
+                    return;
+                }
+                closeModal('unit-selector-modal');
+            };
+            list.appendChild(btn);
+        });
+        modal.style.display = 'flex';
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+        if (id === 'attack-config-modal' || id === 'unit-selector-modal') {
+             if(!attackerUnit) return; 
+             if(!attackConfig && !isPaintingCustom) { attackerUnit = null; restoreTerrainVisuals(); }
+        }
+    }
+
+    function highlightSelection(q, r, color) {
+        restoreTerrainVisuals();
+        const hex = document.getElementById(`hex-${q}-${r}`);
+        if(hex) { hex.style.stroke = color || "var(--highlight)"; hex.style.strokeWidth = "5"; }
+    }
+
+    function drawMovementArrow(q1, r1, q2, r2) {
+        const layer = document.getElementById('arrow-layer');
+        layer.innerHTML = ''; 
+        document.getElementById('effect-layer').innerHTML = '';
+        restoreTerrainVisuals(); 
+
+        const start = getCellGeometry(q1, r1);
+        const end = getCellGeometry(q2, r2);
+        const svgNS = "http://www.w3.org/2000/svg";
+        const line = document.createElementNS(svgNS, "line");
+        line.setAttribute("x1", start.x); line.setAttribute("y1", start.y);
+        line.setAttribute("x2", end.x); line.setAttribute("y2", end.y);
+        line.setAttribute("class", "move-arrow");
+        line.setAttribute("marker-end", "url(#arrowhead)");
+        layer.appendChild(line);
+    }
+
+    function updateHexVisual(q, r) {
+        const key = `${q},${r}`;
+        const hex = document.getElementById(`hex-${q}-${r}`);
+        const icon = document.getElementById(`icon-${q}-${r}`);
+        if (!hex) return;
+
+        if (!isPaintingCustom) {
+            hex.style.stroke = "";
+            hex.style.strokeWidth = "";
+            hex.classList.remove('attack-range', 'attack-target'); 
+        }
+
+        const isFogged = fogData[key] === true;
+        const terrainType = terrainData[key] ? `t-${terrainData[key]}` : 't-empty';
+        
+        hex.classList.remove('t-empty', 't-wall', 't-water', 't-mountain', 't-forest', 't-fence', 'fog-hidden');
+        hex.classList.add(terrainType);
+        
+        if (isFogged) hex.classList.add('fog-hidden');
+
+        let c=""; 
+        if(terrainData[key]==='mountain')c='▲'; 
+        else if(terrainData[key]==='forest')c='♣'; 
+        else if(terrainData[key]==='water')c='≈';
+        icon.textContent=c;
+    }
+
+    function renderUnits() {
+        const layer = document.getElementById('unit-layer'); 
+        layer.innerHTML = ''; 
+        const svgNS = "http://www.w3.org/2000/svg";
+        
+        // 如果开启了 AP 模式，更新 AP 显示
+        if (apMode) renderAPBar();
+
+        const stackMap = {};
+        units.forEach(u => { 
+            const key = `${u.q},${u.r}`; 
+            if (fogData[key] && !isGmView) return; 
+            if (!stackMap[key]) stackMap[key] = []; 
+            stackMap[key].push(u); 
+        });
+
+        for (const key in stackMap) {
+            const stack = stackMap[key];
+            const [q, r] = key.split(',').map(Number);
+            const geo = getCellGeometry(q, r); 
+            const cx = geo.x; 
+            const cy = geo.y;
+
+            stack.forEach((u, index) => {
+                let drawX = cx; let drawY = cy; let scale = 0.6; 
+                
+                if (stack.length > 1) {
+                    scale = 0.4; 
+                    const angle = (2 * Math.PI / stack.length) * index - Math.PI/2;
+                    const offsetR = mapConfig.type === 'square' ? 20 : hexSize * 0.5;
+                    drawX = cx + Math.cos(angle) * offsetR; 
+                    drawY = cy + Math.sin(angle) * offsetR;
+                }
+                
+                const circle = document.createElementNS(svgNS, "circle");
+                circle.setAttribute("cx", drawX); circle.setAttribute("cy", drawY); 
+                circle.setAttribute("r", hexSize * scale); circle.setAttribute("class", "unit-token");
+                if (fogData[`${q},${r}`] && isGmView) circle.style.opacity = "0.3"; 
+
+                const txt = document.createElementNS(svgNS, "text");
+                txt.setAttribute("x", drawX); txt.setAttribute("y", drawY); 
+                txt.setAttribute("class", "unit-label");
+                
+                let fontSize = "14px";
+                if (stack.length > 1) fontSize = "10px";
+                else if (u.tag && u.tag.length > 1) fontSize = "12px";
+                txt.style.fontSize = fontSize;
+                
+                if (fogData[`${q},${r}`] && isGmView) txt.style.opacity = "0.3";
+
+                if (u.type.startsWith('player_')) {
+                    const pIndex = parseInt(u.type.split('_')[1]);
+                    circle.setAttribute("fill", playerColors[pIndex]); 
+                    circle.setAttribute("stroke", "#000");
+                    txt.textContent = u.tag || "PL"; 
+                    txt.setAttribute("fill", "#000");
+                } else {
+                    circle.setAttribute("fill", colorMap[u.type]);
+                    txt.textContent = u.tag || "?"; 
+                }
+                
+                layer.appendChild(circle); layer.appendChild(txt);
+
+                // --- 绘制动态状态条 (Stack垂直排列) ---
+                if (!u.hp) { u.hp = 100; u.max_hp = 100; u.mp = 100; u.max_mp = 100; u.ap = 4; u.max_ap = 4; u.custom_bars = []; } 
+
+                const barW = 36; 
+                const barH = 3;  
+                let currentBarY = drawY - (hexSize * scale) - 10; 
+
+                // 绘制 HP (固定)
+                drawSingleBar(layer, drawX, currentBarY, barW, barH, u.hp, u.max_hp, '#00e676', 'hp');
+                currentBarY += (barH + 1);
+
+                // 绘制 MP (固定)
+                drawSingleBar(layer, drawX, currentBarY, barW, barH, u.mp, u.max_mp, '#00bcd4', 'mp');
+                currentBarY += (barH + 1);
+
+                // 绘制自定义条
+                if(u.custom_bars && u.custom_bars.length > 0) {
+                    u.custom_bars.forEach(bar => {
+                        drawSingleBar(layer, drawX, currentBarY, barW, barH, bar.val, bar.max, bar.color, 'custom');
+                        currentBarY += (barH + 1);
+                    });
+                }
+            });
+        }
+    }
+
+    function drawSingleBar(layer, x, y, w, h, val, max, color, type) {
+        const svgNS = "http://www.w3.org/2000/svg";
+        const barX = x - w / 2;
+        
+        // 背景
+        const bg = document.createElementNS(svgNS, "rect");
+        bg.setAttribute("x", barX); bg.setAttribute("y", y);
+        bg.setAttribute("width", w); bg.setAttribute("height", h);
+        bg.setAttribute("class", "hud-bar-bg");
+        layer.appendChild(bg);
+
+        // 前景
+        const pct = Math.max(0, Math.min(1, val / max));
+        const fill = document.createElementNS(svgNS, "rect");
+        fill.setAttribute("x", barX); fill.setAttribute("y", y);
+        fill.setAttribute("width", w * pct); fill.setAttribute("height", h);
+        
+        if (type === 'hp') fill.setAttribute("class", "hud-hp-fill " + (pct < 0.25 ? "critical" : ""));
+        else if (type === 'mp') fill.setAttribute("class", "hud-mp-fill");
+        else {
+            fill.setAttribute("class", "hud-custom-fill");
+            fill.style.fill = color;
+        }
+        layer.appendChild(fill);
+    }
+
+    // --- AP 系统逻辑 ---
+    function toggleAPMode() {
+        apMode = !apMode;
+        const bar = document.getElementById('ap-bar-container');
+        const btn = document.getElementById('btn-toggle-ap');
+        
+        if (apMode) {
+            bar.style.display = 'flex';
+            btn.innerText = "⚡ AP系统: ON";
+            btn.style.background = "rgba(255, 235, 59, 0.2)";
+            renderAPBar();
+        } else {
+            bar.style.display = 'none';
+            btn.innerText = "⚡ AP系统: OFF";
+            btn.style.background = "";
+        }
+    }
+
+    function renderAPBar() {
+        if (!apMode) return;
+        const container = document.getElementById('ap-bar-container');
+        container.innerHTML = '';
+
+        units.forEach(u => {
+            // 确定颜色
+            let color = '#fff';
+            if (u.type.startsWith('player_')) {
+                const pIndex = parseInt(u.type.split('_')[1]);
+                color = playerColors[pIndex];
+            } else {
+                color = colorMap[u.type];
+            }
+
+            const card = document.createElement('div');
+            card.className = 'ap-unit-card';
+            card.style.borderColor = color;
+            
+            // 初始化 AP (防报错)
+            if (u.ap === undefined) { u.ap = 4; u.max_ap = 4; }
+
+            card.innerHTML = `
+                <div class="ap-unit-name" style="color:${color}">${u.name}</div>
+                <div class="ap-controls">
+                    <input class="ap-input" value="${u.ap}" onchange="updateAP(${u.id}, 'cur', this.value)">
+                    <span style="color:#555">/</span>
+                    <input class="ap-input" value="${u.max_ap}" style="color:#888" onchange="updateAP(${u.id}, 'max', this.value)">
+                    <span class="ap-label">AP</span>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function updateAP(unitId, type, val) {
+        const u = units.find(u => u.id === unitId);
+        if (u) {
+            val = parseInt(val);
+            if (type === 'cur') u.ap = val;
+            if (type === 'max') u.max_ap = val;
+            // 不需要重绘整个地图，只需要重绘 AP 栏（防止输入焦点丢失，这里其实不重绘最好，但为了数据同步简单处理）
+            // 因为输入框是独立的，这里不重绘 AP 栏，只更新数据即可
+        }
+    }
+
+    function toggleFogVisibility(forceState) {
+        if (forceState !== undefined) isGmView = forceState;
+        else isGmView = !isGmView;
+
+        const svg = document.querySelector('svg');
+        const btn = document.getElementById('btn-toggle-fog');
+        
+        if (isGmView) {
+            if(svg) svg.classList.add('gm-view');
+            btn.innerText = "👁️ 预览迷雾 (当前: GM视图)";
+            btn.style.color = "var(--highlight)"; btn.style.borderColor = "var(--highlight)";
+            addLog("System", "Switched to GM View (Fog Translucent).");
+        } else {
+            if(svg) svg.classList.remove('gm-view');
+            btn.innerText = "👁️ 预览迷雾 (当前: 玩家视图)";
+            btn.style.color = "#888"; btn.style.borderColor = "#888";
+            addLog("System", "Switched to Player View (Fog Opaque).");
+        }
+        renderUnits(); 
+    }
+
+    function addLog(type, msg) {
+        const box = document.getElementById('log-content');
+        const entry = document.createElement('div');
+        const time = new Date().toLocaleTimeString('en-US', {hour12:false, hour:"numeric", minute:"numeric", second:"numeric"});
+        let cls = 'info';
+        if (type === 'Combat') cls = 'combat';
+        if (type === 'Move') cls = 'move';
+        if (type === 'System') cls = 'system';
+        entry.className = `log-entry ${cls}`;
+        entry.innerHTML = `<span class="log-time">${time}</span> <strong>[${type.toUpperCase()}]</strong> ${msg}`;
+        box.appendChild(entry);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function sendCustomLog() {
+        const inp = document.getElementById('log-input');
+        if(inp.value.trim() !== "") {
+            addLog("GM", inp.value);
+            inp.value = "";
+        }
+    }
+
+    function updateInfoPanel(unit) {
+        const panel = document.getElementById('info-panel');
+        const imgCont = document.getElementById('info-img-container');
+        const selector = document.getElementById('link-selector');
+        const nameInput = document.getElementById('info-name-input');
+        const container = document.getElementById('status-bars-container');
+        
+        if(unit.hp === undefined) { unit.hp=100; unit.max_hp=100; unit.mp=100; unit.max_mp=100; unit.ap=4; unit.max_ap=4; unit.custom_bars=[]; }
+
+        nameInput.value = unit.name;
+        container.innerHTML = ''; // 清空旧的控件
+
+        // 1. HP (无滑块)
+        container.appendChild(createStatusRow(unit, 'hp', 'HP', '#00e676', unit.hp, unit.max_hp, false));
+        // 2. MP (无滑块)
+        container.appendChild(createStatusRow(unit, 'mp', 'MP', '#00bcd4', unit.mp, unit.max_mp, false));
+        
+        // 3. 自定义条
+        if (unit.custom_bars) {
+            unit.custom_bars.forEach((bar, index) => {
+                container.appendChild(createStatusRow(unit, `custom_${index}`, bar.name, bar.color, bar.val, bar.max, true, index));
+            });
+        }
+
+        selector.innerHTML = '<option value="">-- 未关联 (Auto Match) --</option>';
+        database.forEach(db => {
+            const opt = document.createElement('option');
+            opt.value = db.id; opt.text = db.name;
+            if (unit.linkedDbId == db.id) opt.selected = true;
+            selector.appendChild(opt);
+        });
+
+        let dbEntry = null;
+        if (unit.linkedDbId) { dbEntry = database.find(d => d.id == unit.linkedDbId); }
+        if (!dbEntry) { const cleanName = unit.name.split(' (')[0]; dbEntry = database.find(d => cleanName.includes(d.name) || d.name.includes(cleanName)); }
+
+        if (dbEntry) {
+            document.getElementById('info-faction').innerText = dbEntry.faction;
+            document.getElementById('info-hp').innerText = `DATA HP: ${dbEntry.hp}`;
+            document.getElementById('info-desc').innerText = dbEntry.desc;
+            imgCont.innerHTML = dbEntry.img ? `<img src="${dbEntry.img}" class="info-img">` : `<div class="no-img" style="color:#555">NO IMG</div>`;
+        } else {
+            document.getElementById('info-faction').innerText = "UNK";
+            document.getElementById('info-hp').innerText = "DATA: N/A";
+            document.getElementById('info-desc').innerText = "未关联图鉴数据。";
+            imgCont.innerHTML = `<div class="no-img" style="color:#555">NO DATA</div>`;
+        }
+        panel.classList.add('active');
+    }
+
+    // --- 创建无滑块的控制行 ---
+    function createStatusRow(unit, typeId, label, color, val, max, isCustom, index) {
+        const div = document.createElement('div');
+        div.className = 'status-row';
+        div.style.borderLeftColor = color;
+
+        // Header
+        const header = document.createElement('div');
+        header.className = 'status-header';
+        
+        if (isCustom) {
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.className = 'status-name-input';
+            nameInput.value = label;
+            nameInput.onchange = (e) => updateCustomBarData(index, 'name', e.target.value);
+            header.appendChild(nameInput);
+        } else {
+            const nameSpan = document.createElement('span');
+            nameSpan.style.color = color; nameSpan.style.fontWeight = 'bold'; nameSpan.style.fontSize = '12px';
+            nameSpan.innerText = label;
+            header.appendChild(nameSpan);
+        }
+
+        if (isCustom) {
+            const cp = document.createElement('input');
+            cp.type = 'color';
+            cp.className = 'color-picker';
+            cp.value = color;
+            cp.onchange = (e) => {
+                div.style.borderLeftColor = e.target.value;
+                updateCustomBarData(index, 'color', e.target.value);
+            };
+            header.appendChild(cp);
+            
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn-del-bar';
+            delBtn.innerHTML = '✖';
+            delBtn.title = '删除此条';
+            delBtn.onclick = () => removeCustomBar(index);
+            header.appendChild(delBtn);
+        }
+
+        div.appendChild(header);
+
+        // Inputs Area (No Slider)
+        const inputsDiv = document.createElement('div');
+        inputsDiv.className = 'status-inputs';
+
+        const numInput = document.createElement('input');
+        numInput.type = 'number';
+        numInput.className = 'inp-num';
+        numInput.value = val;
+        numInput.style.color = color;
+        numInput.onchange = (e) => {
+            let v = parseInt(e.target.value);
+            if (!isCustom) updateUnitStat(typeId, v);
+            else updateCustomBarData(index, 'val', v);
+        };
+
+        const slash = document.createElement('span');
+        slash.innerText = '/';
+        slash.style.color = '#555';
+        slash.style.margin = '0 5px';
+
+        const maxInput = document.createElement('input');
+        maxInput.type = 'number';
+        maxInput.className = 'inp-num-max';
+        maxInput.value = max;
+        maxInput.onchange = (e) => {
+            let v = parseInt(e.target.value);
+            if (!isCustom) updateUnitStat('max_' + typeId, v);
+            else updateCustomBarData(index, 'max', v);
+        };
+
+        inputsDiv.appendChild(numInput);
+        inputsDiv.appendChild(slash);
+        inputsDiv.appendChild(maxInput);
+        div.appendChild(inputsDiv);
+
+        return div;
+    }
+
+    function updateUnitStat(type, value) {
+        if (!selectedUnitId) return;
+        const u = units.find(u => u.id === selectedUnitId);
+        if (!u) return;
+
+        value = parseInt(value);
+        if (isNaN(value)) value = 0;
+        
+        if (type === 'hp') u.hp = value;
+        if (type === 'max_hp') { u.max_hp = value; if(u.hp > value) u.hp = value; }
+        if (type === 'mp') u.mp = value;
+        if (type === 'max_mp') { u.max_mp = value; if(u.mp > value) u.mp = value; }
+        
+        renderUnits();
+    }
+
+    function addCustomBar() {
+        if (!selectedUnitId) return;
+        const u = units.find(u => u.id === selectedUnitId);
+        if (!u) return;
+        if (!u.custom_bars) u.custom_bars = [];
+
+        u.custom_bars.push({ name: '新状态', val: 50, max: 100, color: '#ffffff' });
+        updateInfoPanel(u); 
+        renderUnits();
+    }
+
+    function removeCustomBar(index) {
+        if (!selectedUnitId) return;
+        const u = units.find(u => u.id === selectedUnitId);
+        if (!u) return;
+        
+        u.custom_bars.splice(index, 1);
+        updateInfoPanel(u);
+        renderUnits();
+    }
+
+    function updateCustomBarData(index, field, value) {
+        if (!selectedUnitId) return;
+        const u = units.find(u => u.id === selectedUnitId);
+        if (!u || !u.custom_bars[index]) return;
+
+        if (field === 'val' || field === 'max') value = parseInt(value);
+        u.custom_bars[index][field] = value;
+        if (field === 'max' && u.custom_bars[index].val > value) {
+            u.custom_bars[index].val = value;
+        }
+        renderUnits();
+    }
+
+    function renameUnit(newName) {
+        if (!selectedUnitId) return;
+        const u = units.find(u => u.id === selectedUnitId);
+        if (u) { u.name = newName; renderUnits(); if(apMode) renderAPBar(); addLog("Edit", `Unit renamed to ${newName}`); }
+    }
+
+    function linkUnit(dbId) {
+        if (!selectedUnitId) return;
+        const u = units.find(u => u.id === selectedUnitId);
+        if (u) { u.linkedDbId = dbId ? parseInt(dbId) : null; updateInfoPanel(u); }
+    }
+
+    function downloadJSON() {
+        const cleanDB = database.map(d => ({ ...d, img: null })); 
+        const saveData = { version: "4.0", map: terrainData, fog: fogData, units: units, database: cleanDB, config: mapConfig };
+        const blob = new Blob([JSON.stringify(saveData)], {type: "application/json"});
+        const url = URL.createObjectURL(blob); 
+        const a = document.createElement('a'); 
+        a.href = url; 
+        a.download = "sion_city_v4_data.json"; 
+        document.body.appendChild(a); 
+        a.click();
+        document.body.removeChild(a); 
+        addLog("System", "Data exported to JSON.");
+    }
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                terrainData = data.map || {}; 
+                fogData = data.fog || {}; 
+                units = data.units || []; database = data.database || []; 
+                mapConfig = data.config || {cols:20, rows:15, type:'hex'};
+                document.getElementById('inp-cols').value = mapConfig.cols;
+                document.getElementById('inp-rows').value = mapConfig.rows;
+                document.getElementById('inp-type').value = mapConfig.type || 'hex';
+                initMap(); renderGallery(); 
+                addLog("System", "Map loaded from JSON.")
+            } catch(err) { alert("文件错误！"); }
+        }; reader.readAsText(file);
+    }
+    
+    function setTool(mode, type) {
+        if(!isPaintingCustom) {
+            clearCombatVisuals();
+            document.querySelectorAll('.attack-impact').forEach(el => el.classList.remove('attack-impact'));
+        }
+
+        currentMode = mode; currentBrush = type;
+        moveSourceUnit = null; attackerUnit = null; attackConfig = null; isPaintingCustom = false;
+        document.getElementById('paint-toolbar').style.display = 'none';
+
+        restoreTerrainVisuals();
+        document.querySelectorAll('.brush-btn, .player-btn').forEach(b => b.classList.remove('active'));
+        if (event && event.currentTarget) event.currentTarget.classList.add('active');
+        let label = "CURSOR";
+        if(mode === 'terrain') label = `TERRAIN: ${type.toUpperCase()}`;
+        if(mode === 'unit') label = `DEPLOY: ${type.toUpperCase()}`;
+        if(mode === 'fog') label = `FOG: ${type.toUpperCase()}`;
+        if(mode === 'move') label = `MOVE UNIT`;
+        if(mode === 'attack') label = `COMBAT MODE`;
+        document.getElementById('tool-label').innerText = label;
+        document.getElementById('info-panel').classList.remove('active');
+    }
+
+    function switchPage(pageId) {
+        document.getElementById('page-map').style.display = pageId === 'map' ? 'flex' : 'none';
+        document.getElementById('page-database').style.display = pageId === 'db' ? 'block' : 'none';
+        document.getElementById('btn-map').classList.toggle('active-tab', pageId === 'map');
+        document.getElementById('btn-db').classList.toggle('active-tab', pageId === 'db');
+    }
+
+    function addCharacter() {
+        const entry = { id: Date.now(), name: document.getElementById('db-name').value, hp: document.getElementById('db-hp').value, faction: document.getElementById('db-faction').value, desc: document.getElementById('db-desc').value, img: null };
+        const f = document.getElementById('db-img').files[0];
+        if(f) { const r = new FileReader(); r.onload=(e)=>{entry.img=e.target.result; database.push(entry); renderGallery();}; r.readAsDataURL(f); }
+        else { database.push(entry); renderGallery(); }
+        addLog("Database", `New character [${entry.name}] added.`);
+    }
+
+    function renderGallery() {
+        const c = document.getElementById('card-gallery'); c.innerHTML='';
+        database.forEach((d,i)=>{ c.innerHTML+=`<div class="char-card"><div class="card-img-box">${d.img?`<img src="${d.img}" class="card-img">`:`<div class="no-img" style="color:#555">NO IMG</div>`}</div><div class="card-info"><div class="card-name">${d.name}</div><div style="margin-bottom:auto">${d.faction}</div><button class="btn-del-card" onclick="database.splice(${i},1);renderGallery()">DEL</button></div></div>`; });
+    }
+
+    function restoreTerrainVisuals() {
+        for (let r = 0; r < mapConfig.rows; r++) {
+            for (let q = 0; q < mapConfig.cols; q++) {
+                updateHexVisual(q, r);
+            }
+        }
+    }
+</script>
+</body>
+</html>
