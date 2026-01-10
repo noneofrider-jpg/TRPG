@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEIN.NET // FINAL_FLAT_VER</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050505;
+            --primary: #00f3ff;
+            --secondary: #0066ff;
+            --danger: #ff2a2a;
+            --window-bg: #0b0d12;
+            --window-header: #141820;
+            --border: rgba(0, 243, 255, 0.4);
+            --text-main: #d0d5dd;
+            
+            /* 势力色 */
+            --c-vespera: #d000ff;
+            --c-babylon: #ffc800;
+            --c-neo: #ffffff;
+            --c-market: #00f3ff;
+            --c-slums: #ff2a2a;
+            --c-clinic: #00ff99;
+            --c-noise: #0088ff;
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+        body {
+            margin: 0; overflow: hidden;
+            background: #000; color: var(--text-main);
+            font-family: 'Noto Sans SC', sans-serif;
+            height: 100vh; width: 100vw;
+            display: flex; flex-direction: column;
+        }
+
+        /* === 视觉特效层 === */
+        /* 调低了扫描线的层级，保证它不会挡住文字太严重 */
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+        }
+        .vignette {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40;
+            box-shadow: inset 0 0 150px rgba(0,0,0,0.9);
+        }
+
+        /* Glitch 文字特效 */
+        .glitch { position: relative; display: inline-block; }
+        .glitch::before, .glitch::after {
+            content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.8; clip: rect(0, 0, 0, 0);
+        }
+        .glitch::before { left: 2px; text-shadow: -1px 0 #ff00c1; animation: glitch-anim-1 2s infinite linear alternate-reverse; }
+        .glitch::after { left: -2px; text-shadow: -1px 0 #00fff9; animation: glitch-anim-2 3s infinite linear alternate-reverse; }
+        @keyframes glitch-anim-1 {
+            0% { clip: rect(20px, 9999px, 15px, 0); } 20% { clip: rect(50px, 9999px, 60px, 0); }
+            40% { clip: rect(10px, 9999px, 80px, 0); } 60% { clip: rect(80px, 9999px, 20px, 0); }
+            80% { clip: rect(30px, 9999px, 40px, 0); } 100% { clip: rect(60px, 9999px, 5px, 0); }
+        }
+        @keyframes glitch-anim-2 {
+            0% { clip: rect(60px, 9999px, 5px, 0); } 20% { clip: rect(10px, 9999px, 80px, 0); }
+            40% { clip: rect(30px, 9999px, 40px, 0); } 60% { clip: rect(50px, 9999px, 60px, 0); }
+            80% { clip: rect(20px, 9999px, 15px, 0); } 100% { clip: rect(80px, 9999px, 20px, 0); }
+        }
+        .redacted { background: #000; color: #000; padding: 0 4px; cursor: help; transition: color 0.3s; }
+        .redacted:hover { color: #333; }
+
+        /* === 启动与退出界面 === */
+        #intro-screen, #outro-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 20000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-family: 'Orbitron'; color: var(--primary);
+        }
+        #outro-screen { display: none; z-index: 20001; }
+
+        .big-text { font-size: 2rem; margin-bottom: 20px; text-align: center; letter-spacing: 2px; }
+        .sub-text { font-family: 'Share Tech Mono'; font-size: 1rem; color: #666; letter-spacing: 1px; }
+        
+        .loader-bar {
+            width: 300px; height: 4px; background: #222; margin-top: 40px; position: relative; overflow: hidden;
+        }
+        .loader-progress {
+            position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+            transition: width 0.1s linear;
+        }
+
+        /* CRT 关机动画 */
+        @keyframes turn-off {
+            0% { transform: scale(1, 1.3) translate3d(0, 0, 0); filter: brightness(1); opacity: 1; }
+            60% { transform: scale(1, 0.001) translate3d(0, 0, 0); filter: brightness(10); }
+            100% { animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06); transform: scale(0, 0.0001) translate3d(0, 0, 0); filter: brightness(50); opacity: 0; }
+        }
+        .crt-off { animation: turn-off 0.55s cubic-bezier(0.23, 1, 0.32, 1); animation-fill-mode: forwards; }
+
+        /* === 主界面容器 === */
+        #main-interface {
+            display: none;
+            flex: 1; flex-direction: column; height: 100%; overflow: hidden;
+        }
+
+        /* === 布局细节 === */
+        #top-hud {
+            height: 40px; background: #080a0c; border-bottom: 1px solid #333;
+            display: flex; align-items: center; justify-content: space-between; padding: 0 15px;
+            font-family: 'Share Tech Mono'; font-size: 0.8rem; z-index: 2000; color: var(--primary);
+            flex-shrink: 0;
+        }
+        .power-btn {
+            font-size: 1.2rem; color: var(--danger); cursor: pointer; 
+            border: 1px solid #333; width: 30px; height: 30px; display: grid; place-items: center;
+            transition: 0.2s;
+        }
+        .power-btn:hover { background: var(--danger); color: #000; box-shadow: 0 0 10px var(--danger); }
+
+        .ticker-wrap {
+            flex: 1; overflow: hidden; height: 100%; margin: 0 30px; position: relative;
+            background: rgba(0, 243, 255, 0.05); border-left: 1px solid #333; border-right: 1px solid #333;
+            display: flex; align-items: center;
+        }
+        .ticker-move { display: inline-block; white-space: nowrap; animation: ticker 40s linear infinite; color: #889; }
+        @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+
+        #workspace { flex: 1; position: relative; display: flex; overflow: hidden; }
+
+        .sidebar-matrix {
+            width: 250px; height: 100%; background: #000; 
+            border-right: 1px solid #222; position: relative; z-index: 1; flex-shrink: 0;
+            overflow: hidden; 
+        }
+        .sidebar-right { border-right: none; border-left: 1px solid #222; }
+        
+        /* 强制 Canvas 填满侧边栏 */
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* 手机端隐藏侧边栏，但允许平板显示 */
+        @media (max-width: 600px) { .sidebar-matrix { display: none; } }
+
+        #map-container {
+            flex: 1; position: relative; overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(0, 60, 100, 0.15), transparent 85%),
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 60px 60px, 60px 60px;
+            background-color: #050505;
+        }
+
+        .pin {
+            position: absolute; display: flex; flex-direction: column; align-items: center;
+            cursor: pointer; z-index: 10; transition: 0.2s;
+        }
+        .pin:hover { z-index: 20; transform: scale(1.1); filter: drop-shadow(0 0 15px var(--c)); }
+        .pin-icon {
+            width: 48px; height: 48px; background: rgba(0,0,0,0.85);
+            border: 2px solid var(--c); color: var(--c);
+            display: grid; place-items: center; font-size: 1.5rem;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5); border-radius: 4px;
+        }
+        .pin-label {
+            margin-top: 5px; background: #000; color: #fff;
+            padding: 2px 8px; font-size: 0.7rem; border: 1px solid var(--c);
+            white-space: nowrap; font-family: 'Share Tech Mono'; letter-spacing: 1px;
+        }
+
+        /* 窗口相关 */
+        .window {
+            position: absolute; background: var(--window-bg);
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 80px rgba(0,0,0,0.95);
+            display: flex; flex-direction: column;
+            overflow: hidden; min-width: 300px;
+            animation: openWin 0.2s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        @keyframes openWin { from { opacity:0; transform: scale(0.95); } to { opacity:1; transform: scale(1); } }
+        .win-header {
+            height: 36px; background: var(--window-header); border-bottom: 1px solid #333;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 10px; cursor: move; flex-shrink: 0;
+        }
+        .win-title { font-family: 'Orbitron'; font-size: 0.85rem; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .close-btn {
+            background: transparent; border: 1px solid var(--danger); color: var(--danger);
+            width: 24px; height: 24px; line-height: 22px; text-align: center;
+            cursor: pointer; font-family: sans-serif; font-weight: bold;
+        }
+        .close-btn:hover { background: var(--danger); color: #000; }
+        .win-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+        .shop-window .win-body { overflow: hidden; }
+
+        /* 商店与详情 */
+        .shop-container { display: flex; height: 100%; }
+        .shop-sidebar { width: 240px; background: rgba(0,0,0,0.4); border-right: 1px solid #333; padding: 20px; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+        .shop-meta-block { margin-bottom: 20px; font-size: 0.85rem; color: #999; line-height: 1.6; }
+        .npc-mini-card {
+            background: rgba(255,255,255,0.03); border: 1px solid #444; padding: 10px; margin-top: 10px; 
+            cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 10px;
+        }
+        .npc-mini-card:hover { border-color: var(--primary); background: rgba(0,243,255,0.05); }
+        .npc-mini-avatar { width: 30px; height: 30px; background:#000; border-radius: 50%; overflow: hidden; border: 1px solid #555; }
+        .npc-mini-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .shop-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .menu-header { padding: 10px 20px; border-bottom: 1px solid #333; font-family: 'Share Tech Mono'; color: var(--primary); font-size: 0.9rem; background: rgba(0,243,255,0.02); flex-shrink: 0; }
+        .goods-grid { flex: 1; overflow-y: auto; padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; align-content: start; }
+        
+        .item-card {
+            background: rgba(0,0,0,0.4); border: 1px solid #333; padding: 10px; 
+            cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; gap: 8px; position: relative;
+        }
+        .item-card:hover { border-color: #fff; background: #1a1c25; }
+        .item-icon { height: 80px; background: #000; border: 1px solid #222; display: flex; align-items: center; justify-content: center; font-size: 2rem; color: #555; }
+        .item-name { font-weight: bold; font-size: 0.9rem; color: #eee; }
+        .item-price { font-family: 'Share Tech Mono'; color: var(--primary); font-size: 0.8rem; text-align: right; }
+        .item-stock { position: absolute; top: 5px; left: 5px; font-size: 0.6rem; background: #222; padding: 2px 4px; color: #aaa; border-radius: 2px; }
+
+        .item-detail-overlay {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 200px;
+            background: rgba(10, 15, 20, 0.98); border-top: 2px solid var(--primary);
+            padding: 20px; display: flex; gap: 20px; transform: translateY(100%); transition: transform 0.3s ease; z-index: 50;
+        }
+        .item-detail-overlay.active { transform: translateY(0); }
+        .detail-img { width: 100px; height: 100px; background: #000; border: 1px solid #444; flex-shrink: 0; display: grid; place-items: center; font-size: 2rem; }
+        .detail-info { flex: 1; overflow-y: auto; }
+
+        .zone-banner { padding: 25px; background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent); border-bottom: 1px solid #333; }
+        .zone-desc { font-size: 0.95rem; color: #bbb; line-height: 1.8; text-align: justify; }
+        .entry-item {
+            display: flex; align-items: center; gap: 15px; padding: 15px 20px; border-bottom: 1px solid #222; 
+            cursor: pointer; transition: 0.2s; flex-shrink: 0;
+        }
+        .entry-item:hover { background: rgba(255,255,255,0.05); padding-left: 25px; }
+        .ei-icon { font-size: 1.5rem; width: 40px; text-align: center; }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #050505; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; border: 1px solid #000; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <div id="intro-screen">
+        <div class="big-text" id="welcome-text"></div>
+        <div class="sub-text" id="sub-welcome"></div>
+        <div class="loader-bar">
+            <div class="loader-progress" id="loader"></div>
+        </div>
+        <div style="margin-top:10px; font-family:'Share Tech Mono'; font-size:0.7rem; color:#444;">INITIALIZING NEURO-LINK...</div>
+    </div>
+
+    <div id="outro-screen">
+        <div class="big-text" style="color:var(--danger)">SYSTEM SHUTDOWN</div>
+        <div class="sub-text">感谢您的使用</div>
+        <div class="sub-text" style="margin-top:5px; font-size:0.8rem;">THANK YOU FOR USING SEIN.NET</div>
+    </div>
+
+    <div id="main-interface">
+        <div id="top-hud">
+            <div style="display:flex; gap:20px; align-items:center;">
+                <span style="font-weight:900; font-size:1.1rem; color:#fff;" class="glitch" data-text="SEIN.NET">SEIN.NET</span>
+                <span style="font-size:0.7rem; color:#666;">SYS_VER: 5.2.0 (MATRIX_OK)</span>
+                <span>NET: <span style="color:#0f0">SECURE</span></span>
+            </div>
+            <div class="ticker-wrap">
+                <div class="ticker-move">
+                    /// ALERT: Neo Execution Squad declares Sector-4 a 'No-Go Zone' /// MARKET: Vespera stocks up 4.2% after 'successful cleanup' /// WEATHER: Heavy Acid Rain expected in Zone-1 /// WARNING: Unregistered Cyberdecks will be confiscated ///
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:20px;">
+                <div id="clock" style="color:#fff; font-weight:bold;">00:00:00</div>
+                <div class="power-btn" onclick="shutdownSystem()" title="SHUTDOWN">⏻</div>
+            </div>
+        </div>
+
+        <div id="workspace">
+            <div class="sidebar-matrix"><canvas id="canvas-left"></canvas></div>
+
+            <div id="map-container">
+                <div class="pin" style="top:20%; left:45%; --c:var(--c-vespera)" onclick="spawnZone('vespera')">
+                    <div class="pin-icon">❖</div><div class="pin-label">维斯佩拉</div>
+                </div>
+                <div class="pin" style="top:50%; left:50%; --c:var(--c-babylon)" onclick="spawnZone('babylon')">
+                    <div class="pin-icon">🎭</div><div class="pin-label">巴比伦剧院</div>
+                </div>
+                <div class="pin" style="top:40%; right:20%; --c:var(--c-market)" onclick="spawnZone('market')">
+                    <div class="pin-icon">🛒</div><div class="pin-label">Z-1 商业街</div>
+                </div>
+                <div class="pin" style="top:25%; left:25%; --c:var(--c-neo)" onclick="spawnZone('neo')">
+                    <div class="pin-icon">⚖️</div><div class="pin-label">Neo 执行队</div>
+                </div>
+                <div class="pin" style="bottom:25%; left:25%; --c:var(--c-slums)" onclick="spawnZone('slums')">
+                    <div class="pin-icon">🏚️</div><div class="pin-label">商贸贫民窟</div>
+                </div>
+                <div class="pin" style="bottom:40%; right:15%; --c:var(--c-clinic)" onclick="spawnShop('clinic')">
+                    <div class="pin-icon">✚</div><div class="pin-label">后巷诊所</div>
+                </div>
+                <div class="pin" style="top:10%; right:35%; --c:var(--c-noise)" onclick="spawnShop('power_plant')">
+                    <div class="pin-icon">⚡</div><div class="pin-label">B-04 变电站</div>
+                </div>
+                <div class="pin" style="bottom:15%; right:45%; --c:var(--c-noise)" onclick="spawnShop('water_plant')">
+                    <div class="pin-icon">💧</div><div class="pin-label">净水厂</div>
+                </div>
+                <div class="pin" style="top:60%; left:10%; --c:var(--c-noise)" onclick="spawnShop('metro_station')">
+                    <div class="pin-icon">🚇</div><div class="pin-label">旧地铁站</div>
+                </div>
+            </div>
+
+            <div class="sidebar-matrix sidebar-right"><canvas id="canvas-right"></canvas></div>
+        </div>
+    </div>
+
+    <script>
+        // ================== 系统逻辑：启动与退出 ==================
+        window.onload = function() {
+            // 立即启动代码雨
+            startRain();
+
+            const txt1 = "欢迎使用塞恩市信息终端";
+            const txt2 = "WELCOME TO SEIN CITY INFO TERMINAL";
+            const el1 = document.getElementById('welcome-text');
+            const el2 = document.getElementById('sub-welcome');
+            const loader = document.getElementById('loader');
+            const intro = document.getElementById('intro-screen');
+            const main = document.getElementById('main-interface');
+
+            let i = 0;
+            function typeWriter1() {
+                if (i < txt1.length) {
+                    el1.innerHTML += txt1.charAt(i);
+                    i++;
+                    setTimeout(typeWriter1, 50);
+                } else {
+                    i = 0;
+                    typeWriter2();
+                }
+            }
+            function typeWriter2() {
+                if (i < txt2.length) {
+                    el2.innerHTML += txt2.charAt(i);
+                    i++;
+                    setTimeout(typeWriter2, 20);
+                } else {
+                    startLoading();
+                }
+            }
+            function startLoading() {
+                loader.style.width = "100%";
+                setTimeout(() => {
+                    intro.style.opacity = 0;
+                    setTimeout(() => {
+                        intro.style.display = 'none';
+                        main.style.display = 'flex';
+                        // 主界面显示后，强制再刷新一次代码雨，确保位置正确
+                        startRain();
+                    }, 500);
+                }, 800);
+            }
+            typeWriter1();
+        };
+
+        function shutdownSystem() {
+            const main = document.getElementById('main-interface');
+            const outro = document.getElementById('outro-screen');
+            main.classList.add('crt-off');
+            setTimeout(() => {
+                main.style.display = 'none';
+                outro.style.display = 'flex';
+            }, 500);
+        }
+
+        // ================== 数据库 (扁平化路径：直接用文件名) ==================
+        const db = {
+            market: {
+                title: "Z-1 商业街", type: "ZONE", color: "#00f3ff",
+                desc: `
+                    位置：中层区 · 缓冲区。<br><br>
+                    这里是塞恩市最繁华的霓虹街区，也是各种怪人开店的地方。
+                `,
+                list: [
+                    { id: 'leblanc', name: "卢布朗咖啡", sub: "Cafe Leblanc", icon: "☕", type: "shop" },
+                    { id: 'decade', name: "光影回廊", sub: "Decade Photo", icon: "📷", type: "shop" },
+                    { id: 'kirei', name: "中华料理·言峰", sub: "Kirei's Kitchen", icon: "🌶️", type: "shop" },
+                    { id: 'stranger', name: "陌生人军火铺", sub: "Stranger's Armory", icon: "🔫", type: "shop" }
+                ]
+            },
+            leblanc: {
+                title: "卢布朗咖啡", color: "#d05e00",
+                address: "Z-1区, 后巷 4-02", hours: "18:00 - 04:00 (深夜营业)",
+                intro: "一家充满复古昭和气息的阁楼咖啡馆。",
+                npcs: [{ id: 'sojiro', name: "佐仓", role: "店主", img: "佐仓.jpg" }],
+                menu: [
+                    { id: 'coffee', name: "大师手冲咖啡", price: "500 CR", icon: "☕", type: "消耗品", desc: "选用稀有的深烘豆。<br><b>【效果】</b> 恢复 1d6 精神值 (SAN)。" },
+                    { id: 'curry', name: "卢布朗激辣咖喱", price: "800 CR", icon: "🍛", type: "食物", desc: "加入了不明秘制香料。<br><b>【效果】</b> 恢复 1d8 体力值 (HP)。" },
+                    { id: 'hideout', name: "阁楼避难权", price: "5,000 CR/周", icon: "🏠", type: "服务", desc: "租用二楼阁楼一周。<br><b>【特殊】</b> 此处为绝对安全屋。" }
+                ]
+            },
+            decade: {
+                title: "光影回廊", color: "#ff00ff",
+                address: "Z-1区, 霓虹大道 11号", hours: "不定时 (看心情)",
+                intro: "挂着品红色霓虹招牌的小店。",
+                npcs: [{ id: 'kadoya', name: "门矢", role: "摄影师", img: "门矢.jpg" }],
+                menu: [
+                    { id: 'id_card', name: "完美伪造ID", price: "10,000 CR", icon: "💳", type: "违禁品", desc: "技术一流，连Neo执行队都查不出来的完美伪造。" },
+                    { id: 'camera_color', name: "品红相机", price: "非卖品", icon: "📷", type: "神器", desc: "<b>【警告】</b> 绝对不要说它是粉色的！他会生气纠正那是“品红”！" }
+                ]
+            },
+            kirei: {
+                title: "中华料理·言峰", color: "#ff2a2a",
+                address: "Z-1区, 地下美食街 B2", hours: "24h 营业",
+                intro: "还没进门就能闻到致死量的辣椒味。",
+                npcs: [{ id: 'kirei_npc', name: "言峰神父", role: "店主", img: "言峰.jpg" }],
+                menu: [
+                    { id: 'mapo', name: "极辣麻婆豆腐", price: "666 CR", icon: "🌶️", type: "生化武器", desc: "红得发黑的豆腐。<br><b>【效果】</b> 食用后需进行【体质】检定。" },
+                    { id: 'water', name: "救命冰水", price: "1,000 CR", icon: "💧", type: "圣水?", desc: "神父正在恶意涨价中。" }
+                ]
+            },
+            stranger: {
+                title: "陌生人军火铺", color: "#aa00ff",
+                address: "流动 (当前: 黑暗小巷)", hours: "Always Open",
+                intro: "What are ya buyin? 一个穿着紫色风衣的高大商人。",
+                npcs: [{ id: 'merchant', name: "商人", role: "军火商", img: "商人.jpg" }],
+                menu: [
+                    { id: 'pistol', name: "黑星手枪", price: "2,000 CR", icon: "🔫", type: "武器", desc: "旧时代警用手枪的仿制品。" },
+                    { id: 'rpg', name: "RPG-7", price: "15,000 CR", icon: "🚀", type: "重武器", desc: "这玩意儿他是从哪掏出来的？<br>附赠一发高爆弹头。" }
+                ]
+            },
+            vespera: {
+                title: "维斯佩拉家政", type: "CORP", color: "#d000ff",
+                desc: `
+                    总部位置：上层区 · 翡翠庄园。<br><br>
+                    表面上，这是一家垄断了上层区90%市场的合法企业。实际上，这是一个以“清洁”为隐喻的精英雇佣兵团。
+                `,
+                list: [
+                    { id: 'seizan', name: "松原 青衫", sub: "幕后家主", icon: "👤", type: "char" },
+                    { id: 'shen', name: "沈 墨兰", sub: "执行总管", icon: "👤", type: "char" }
+                ]
+            },
+            babylon: {
+                title: "巴比伦大剧院", type: "CORP", color: "#ffc800",
+                desc: `
+                    位置：上层区 · 黄金大道 01 号。<br><br>
+                    塞恩市最奢华的建筑，也是权贵们唯一的精神避难所。
+                `,
+                list: [
+                    { id: 'edward', name: "爱德华", sub: "剧院主人", icon: "👤", type: "char" },
+                    { id: '918', name: "9月18号负责人", sub: "现场统筹", icon: "👤", type: "char" }
+                ]
+            },
+            neo: {
+                title: "Neo·执行队", type: "CORP", color: "#ffffff",
+                desc: `
+                    位置：市政中心大楼。<br><br>
+                    充满了白色日光灯、甚至有些刺眼的办公大楼。这里是秩序的象征。
+                `,
+                list: [
+                    { id: 'kai', name: "队长 恺", sub: "Lazy Captain", icon: "👤", type: "char" }
+                ]
+            },
+            slums: {
+                title: "商贸贫民窟", type: "ZONE", color: "#ff2a2a",
+                desc: `
+                    位置：下层区 · 废弃排污系统周边。<br><br>
+                    被城市遗弃的地方。这里没有法律，只有生存法则。
+                `,
+                list: [
+                    { id: 'metro_station', name: "废弃地铁站", sub: "居住区", icon: "🚇", type: "shop" },
+                    { id: 'clinic', name: "黑诊所入口", sub: "地下设施", icon: "✚", type: "shop" }
+                ]
+            },
+            clinic: {
+                title: "后巷诊所", color: "#00ff99",
+                address: "贫民窟入口, 地下室", hours: "00:00 - 06:00",
+                intro: "虽然看起来像个屠宰场，满地都是血污纱布，但这里的医生拥有神之手。",
+                npcs: [{ id: 'doc', name: "无名医生", role: "外科专家", img: "医生.jpg" }],
+                menu: [
+                    { id: 'painkiller', name: "强效镇痛剂", price: "1,200 CR", icon: "💉", type: "药品", desc: "能压制赛博精神病早期的幻听症状。" },
+                    { id: 'surgery', name: "子弹取出术", price: "500 CR", icon: "🔪", type: "手术", desc: "物理取弹，不打麻药。" }
+                ]
+            },
+            metro_station: {
+                title: "废弃地铁站", color: "#ff2a2a",
+                address: "贫民窟地下 B3", hours: "已停运",
+                intro: "早已废弃的旧时代地铁站。现在被无数底层人占据。",
+                npcs: [{ id: 'hobo', name: "老流浪汉", role: "包打听", img: "流浪汉.jpg" }],
+                menu: [
+                    { id: 'rat_meat', name: "合成肉串", price: "5 CR", icon: "🍖", type: "食物", desc: "虽然叫合成肉，但其实主要是老鼠肉。" },
+                    { id: 'junk', name: "旧时代垃圾", price: "10 CR", icon: "🗑️", type: "杂物", desc: "坏掉的收音机、半截电池、看不懂的书。" }
+                ]
+            },
+            power_plant: {
+                title: "B-04 变电站", color: "#0088ff",
+                address: "工业区 Sector-7", hours: "24h 运作",
+                intro: "负责供给下层区电力的中枢设施。",
+                npcs: [{ id: 'worker', name: "维修工", role: "NPC", img: "工人.jpg" }],
+                menu: [
+                    { id: 'output', name: "输出功率", price: "4800 MW", icon: "⚡", type: "状态", desc: "当前负载 92%。电网波动中。" },
+                    { id: 'temp', name: "核心温度", price: "89°C", icon: "🌡️", type: "警告", desc: "过热警告。冷却液泄露中。" }
+                ]
+            },
+            water_plant: {
+                title: "净水循环厂", color: "#0088ff",
+                address: "工业区 Sector-9", hours: "24h 运作",
+                intro: "处理城市污水的巨型工厂。",
+                npcs: [{ id: 'guard', name: "保安", role: "NPC", img: "保安.jpg" }],
+                menu: [
+                    { id: 'ph', name: "PH值监测", price: "6.2", icon: "💧", type: "数据", desc: "酸性略高。管道腐蚀严重。" },
+                    { id: 'toxic', name: "重金属含量", price: "超标", icon: "☢️", type: "警告", desc: "检测到微量放射性物质。<br>警告：请勿直接饮用。" }
+                ]
+            },
+            // 角色详情 (全扁平路径)
+            sojiro: { title: "佐仓", role: "Coffee Master", img: "佐仓.jpg", stats: { "咖啡": "S", "黑客": "A" }, bio: "嘴硬心软的中年绅士。前政府顶级黑客。虽然嘴上抱怨麻烦，但总是收留无家可归的‘怪盗’。<br><b>弱点：</b> 提到他的养女时会变得非常感性。" },
+            kadoya: { title: "门矢", role: "Photographer", img: "门矢.jpg", stats: { "摄影": "B-", "破坏": "S" }, bio: "自称“路过的摄影师”。性格傲慢。虽然拍照技术一般，但他在情报收集和伪造身份方面是神级的专家。<br><b>名言：</b> “给我记好了。”" },
+            kirei_npc: { title: "言峰神父", role: "Priest", img: "言峰.jpg", stats: { "愉悦": "MAX", "八极拳": "A" }, bio: "身职神职人员，但似乎更喜欢看到人类在痛苦和挣扎中展现出的光辉。卖麻婆豆腐纯粹是为了欣赏客人们扭曲的表情。" },
+            merchant: { title: "神秘商人", role: "Dealer", img: "商人.jpg", stats: { "库存": "∞", "贪婪": "HIGH" }, bio: "没人知道他的名字。他似乎无处不在。只要你手里有钱，他就是你最好的朋友。<br><b>口头禅：</b> “What are ya buyin'?”" },
+            doc: { title: "无名医生", role: "Surgeon", img: "医生.jpg", stats: { "医术": "SS", "酒量": "C" }, bio: "前生物科技公司的顶级医生，因为某些未公开的原因进入贫民窟，并为这些家伙治病。" },
+            seizan: { title: "松原青衫", role: "Boss", img: "松原.jpg", stats: { "剑道": "SSS", "神秘": "MAX" }, bio: "维斯佩拉的家主。极少露面。他拒绝进行任何机械飞升改造，坚持使用肉体和冷兵器。<br><b>名言：</b> “脏了，就擦掉。”" },
+            shen: { title: "沈墨兰", role: "Maid Chief", img: "沈墨兰.jpg", stats: { "忠诚": "S", "近战": "A+" }, bio: "<b>称号：黑曜石之壁</b><br>她是松原青衫意志的执行者。外表是无可挑剔的完美女仆长，实际上是令人闻风丧胆的杀手。<br><b>装备：</b> 定海 (重型铁锤)。" },
+            kai: { title: "队长 恺", role: "Captain", img: "恺.jpg", stats: { "摸鱼": "S", "战斗": "A" }, bio: "<b>【懒散的正义】</b><br>如果你在办公室找不到他，那他一定是在天台睡觉。虽然看起来毫无干劲，但他是在这泥潭之中仍然抱有正义的人。<br><b>口头禅：</b> “啊...好麻烦。”" },
+            edward: { title: "爱德华", role: "Owner", img: "爱德华.jpg", stats: { "财力": "SSS", "疯狂": "A" }, bio: "亿万富翁，艺术狂热者。他认为只有极致的戏剧才能揭示世界的真相。" },
+            '918': { title: "9月18号", role: "Manager", img: "918.jpg", stats: { "忙碌": "MAX", "焦虑": "HIGH" }, bio: "一个没有名字只有代号的中年社畜。他的ID卡权限极高。如果你想混入后台，搞定他是最快的方法。" },
+            worker: { title: "维修工", role: "NPC", img: "工人.jpg", stats: { "抱怨": "MAX" }, bio: "一个极其普通的维修工人。每天都在诅咒这个该死的变电站和吝啬的老板。" },
+            guard: { title: "保安", role: "NPC", img: "保安.jpg", stats: { "发呆": "MAX" }, bio: "正在打瞌睡。只要不吵醒他，你甚至可以搬走门口的石狮子。" },
+            hobo: { title: "老流浪汉", role: "NPC", img: "流浪汉.jpg", stats: { "生存": "A" }, bio: "在这里住了二十年。他知道哪条下水道通往上层区，也知道哪种老鼠肉最好吃。" }
+        };
+
+        // ================== 系统核心逻辑 ==================
+        let zIndex = 100;
+        const workspace = document.getElementById('map-container');
+
+        function createWindow(id, title, color, width, height) {
+            const win = document.createElement('div');
+            win.className = 'window';
+            win.style.width = width + 'px';
+            win.style.height = height + 'px';
+            win.style.borderColor = color;
+            win.style.zIndex = ++zIndex;
+            
+            const left = 50 + Math.random() * 150;
+            const top = 50 + Math.random() * 80;
+            win.style.left = left + 'px';
+            win.style.top = top + 'px';
+
+            win.innerHTML = `
+                <div class="win-header" style="background:${color}22">
+                    <div class="win-title">
+                        <span style="display:inline-block; width:8px; height:8px; background:${color}; margin-right:8px;"></span>
+                        <span class="glitch" data-text="${title}">${title}</span>
+                    </div>
+                    <div class="close-btn">×</div>
+                </div>
+                <div class="win-body" id="win-body-${id}"></div>
+            `;
+
+            win.querySelector('.close-btn').onclick = (e) => {
+                e.stopPropagation();
+                win.style.opacity = 0;
+                setTimeout(() => win.remove(), 200);
+            };
+            win.onmousedown = () => { win.style.zIndex = ++zIndex; };
+            dragElement(win);
+            workspace.appendChild(win);
+            return win.querySelector(`#win-body-${id}`);
+        }
+
+        // 生成区域
+        function spawnZone(key) {
+            const data = db[key];
+            if(!data) return;
+
+            if(data.type === 'CORP') {
+                const body = createWindow(key, data.title, data.color, 380, 500);
+                let html = `<div style="padding:20px;">
+                    <div class="zone-desc" style="margin-bottom:20px;">${data.desc}</div>
+                    <div class="menu-header">PERSONNEL</div>
+                `;
+                data.list.forEach(item => {
+                    html += `
+                        <div class="entry-item" onclick="spawnChar('${item.id}', '${data.color}')">
+                            <div class="ei-icon">${item.icon}</div>
+                            <div>
+                                <div style="color:#fff; font-weight:bold;">${item.name}</div>
+                                <div style="font-size:0.8rem; color:#888;">${item.sub}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+                body.innerHTML = html;
+            } else {
+                const body = createWindow(key, data.title, data.color, 380, 550);
+                let html = `
+                    <div class="zone-banner">
+                        <div class="zone-desc">${data.desc}</div>
+                    </div>
+                    <div class="menu-header">FACILITIES</div>
+                    <div class="entry-list">
+                `;
+                data.list.forEach(item => {
+                    html += `
+                        <div class="entry-item" onclick="spawnShop('${item.id}')">
+                            <div class="ei-icon">${item.icon}</div>
+                            <div>
+                                <div style="color:#fff; font-weight:bold;">${item.name}</div>
+                                <div style="font-size:0.8rem; color:#888;">${item.sub}</div>
+                            </div>
+                            <div style="margin-left:auto; color:${data.color}">➜</div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+                body.innerHTML = html;
+            }
+        }
+
+        // 生成商店
+        function spawnShop(shopId) {
+            const data = db[shopId];
+            if(!data) return;
+
+            const body = createWindow(shopId, data.title, data.color, 780, 550);
+            body.parentNode.classList.add('shop-window');
+
+            body.innerHTML = `
+                <div class="shop-container">
+                    <div class="shop-sidebar">
+                        <div class="shop-meta-block"><strong>ADDRESS</strong>${data.address}</div>
+                        <div class="shop-meta-block"><strong>HOURS</strong>${data.hours}</div>
+                        <div class="shop-meta-block"><strong>INTRO</strong>${data.intro}</div>
+                        <div style="margin-top:auto;">
+                            <div class="menu-header" style="padding-left:0; border:none;">STAFF</div>
+                            ${data.npcs.map(npc => `
+                                <div class="npc-mini-card" onclick="spawnChar('${npc.id}', '${data.color}')">
+                                    <div class="npc-mini-avatar">
+                                        <img src="${npc.img}" onerror="this.style.display='none'">
+                                    </div>
+                                    <div>
+                                        <div style="font-weight:bold; color:#fff; font-size:0.8rem;">${npc.name}</div>
+                                        <div style="font-size:0.7rem; color:${data.color}">${npc.role}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="shop-main">
+                        <div class="menu-header" style="background:${data.color}11; color:${data.color}">CATALOG // ${data.menu.length} ENTRIES</div>
+                        <div class="goods-grid">
+                            ${data.menu.map(item => `
+                                <div class="item-card" onclick="showItemDetail('${item.id}', '${shopId}')">
+                                    <div class="item-stock">INSTOCK</div>
+                                    <div class="item-icon">${item.icon}</div>
+                                    <div class="item-name">${item.name}</div>
+                                    <div class="item-price">${item.price}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="item-detail-overlay" id="detail-${shopId}"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 显示详情
+        function showItemDetail(itemId, shopId) {
+            const item = db[shopId].menu.find(i => i.id === itemId);
+            const overlay = document.getElementById(`detail-${shopId}`);
+            
+            overlay.innerHTML = `
+                <div class="detail-img">${item.icon}</div>
+                <div class="detail-info">
+                    <div style="font-size:1.1rem; font-weight:bold; color:#fff; margin-bottom:5px;">
+                        <span class="glitch" data-text="${item.name}">${item.name}</span> 
+                        <span style="float:right; color:var(--primary)">${item.price}</span>
+                    </div>
+                    <div style="display:flex; gap:5px; margin-bottom:10px;">
+                        <span style="padding:2px 6px; font-size:0.7rem; background:#333; border-radius:2px;">${item.type}</span>
+                    </div>
+                    <div style="font-size:0.9rem; color:#ccc; line-height:1.5;">${item.desc}</div>
+                </div>
+                <button onclick="this.parentNode.classList.remove('active')" style="position:absolute; top:5px; right:10px; background:none; border:none; color:#555; cursor:pointer; font-size:1.5rem;">×</button>
+            `;
+            overlay.classList.add('active');
+        }
+
+        // 生成角色
+        function spawnChar(charId, color) {
+            const data = db[charId];
+            if(!data) return;
+            const body = createWindow(charId, "PROFILE: " + data.title, color, 450, 350);
+            body.style.padding = "20px";
+            body.innerHTML = `
+                <div style="display:flex; gap:20px; height:100%;">
+                    <div style="width:120px; height:150px; background:#000; border:1px solid #333; flex-shrink:0;">
+                        <img src="${data.img}" onerror="this.style.display='none'" style="width:100%; height:100%; object-fit:cover;">
+                    </div>
+                    <div style="flex:1;">
+                        <h2 style="margin:0; color:#fff;" class="glitch" data-text="${data.title}">${data.title}</h2>
+                        <div style="color:${color}; margin-bottom:10px; font-family:'Share Tech Mono'">// ${data.role}</div>
+                        ${Object.entries(data.stats).map(([k,v]) => `
+                            <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:4px;">
+                                <span style="color:#888;">${k}</span><span style="color:#fff;">${v}</span>
+                            </div>
+                            <div style="height:2px; background:#333; width:100%; margin-bottom:8px;"><div style="height:100%; background:${color}; width:${Math.random()*50+50}%"></div></div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div style="margin-top:15px; font-size:0.9rem; color:#ccc; line-height:1.5; border-top:1px dashed #333; padding-top:10px;">${data.bio}</div>
+            `;
+        }
+
+        // 拖拽函数
+        function dragElement(elmnt) {
+            var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            const header = elmnt.querySelector('.win-header');
+            if (header) header.onmousedown = dragMouseDown;
+            function dragMouseDown(e) {
+                if(e.target.classList.contains('close-btn')) return;
+                e = e || window.event; e.preventDefault();
+                pos3 = e.clientX; pos4 = e.clientY;
+                document.onmouseup = closeDragElement; document.onmousemove = elementDrag;
+                elmnt.style.zIndex = ++zIndex;
+            }
+            function elementDrag(e) {
+                e = e || window.event; e.preventDefault();
+                pos1 = pos3 - e.clientX; pos2 = pos4 - e.clientY;
+                pos3 = e.clientX; pos4 = e.clientY;
+                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+            }
+            function closeDragElement() { document.onmouseup = null; document.onmousemove = null; }
+        }
+
+        // ================== Matrix 代码雨 (强力修复版) ==================
+        const matrixChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"; 
+        
+        function initMatrix(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return; // 安全检查
+
+            const ctx = canvas.getContext('2d');
+            const parent = canvas.parentElement;
+
+            // 1. 强制设定尺寸
+            canvas.width = parent.clientWidth;
+            canvas.height = parent.clientHeight;
+
+            // 如果高度是0（隐藏状态），则不执行
+            if (canvas.width === 0 || canvas.height === 0) return;
+
+            const fontSize = 16; // 字体改大一点
+            const columns = Math.ceil(canvas.width / fontSize);
+            const drops = [];
+            for (let i = 0; i < columns; i++) {
+                drops[i] = Math.random() * -100;
+            }
+
+            function draw() {
+                // 黑色背景，带一点透明度形成拖影
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // 亮绿色文字，使用等宽字体
+                ctx.fillStyle = '#0F0'; 
+                ctx.font = '700 ' + fontSize + 'px monospace'; 
+
+                for (let i = 0; i < drops.length; i++) {
+                    const text = matrixChars.charAt(Math.floor(Math.random() * matrixChars.length));
+                    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                        drops[i] = 0;
+                    }
+                    drops[i]++;
+                }
+            }
+
+            if (canvas.matrixInterval) clearInterval(canvas.matrixInterval);
+            canvas.matrixInterval = setInterval(draw, 33);
+        }
+
+        function startRain() {
+            // 无论窗口大小，只要侧边栏存在就尝试渲染
+            initMatrix('canvas-left');
+            initMatrix('canvas-right');
+        }
+        
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(startRain, 100);
+        });
+
+        // 确保脚本加载后立即运行一次
+        startRain();
+
+        // 时钟
+        setInterval(() => { 
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('en-GB'); 
+        }, 1000);
+
+    </script>
+</body>
+</html>
