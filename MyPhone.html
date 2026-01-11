@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SionOS // V1.2_FIXED</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+SC:wght@400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050505;
+            --neon-blue: #00f3ff;
+            --neon-red: #ff2a2a;
+            --neon-green: #0f0;
+            --neon-yellow: #ffc800;
+            --glass: rgba(20, 25, 30, 0.95);
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; outline: none; }
+        
+        body {
+            margin: 0; padding: 0; background: #000;
+            height: 100vh; display: flex; justify-content: center; align-items: center;
+            font-family: 'Noto Sans SC', sans-serif;
+            background-image: radial-gradient(circle at 50% 50%, #1a1a20 0%, #000 80%);
+        }
+
+        /* === 手机外壳 === */
+        .phone-case {
+            width: 100%; height: 100%; max-width: 420px; max-height: 900px;
+            position: relative; overflow: hidden; background: #000;
+            box-shadow: 0 0 80px rgba(0,243,255,0.15); border: 2px solid #222; border-radius: 4px;
+            display: flex; flex-direction: column;
+        }
+
+        /* === 视觉滤镜 === */
+        .scanlines {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 900;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px; opacity: 0.6;
+        }
+        .vignette {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 901;
+            background: radial-gradient(circle, transparent 60%, rgba(0,0,0,0.8) 100%);
+        }
+
+        /* === Loading 遮罩 === */
+        #app-loader {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 800; display: none;
+            flex-direction: column; justify-content: center; align-items: center;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 3px solid #222; border-top: 3px solid var(--neon-blue); border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 15px;
+        }
+        .loading-text { font-family: 'Share Tech Mono'; color: var(--neon-blue); font-size: 0.8rem; letter-spacing: 2px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* === 顶部状态栏 === */
+        .status-bar {
+            height: 35px; padding: 0 15px; display: flex; justify-content: space-between; align-items: center;
+            font-family: 'Share Tech Mono'; color: #888; font-size: 0.75rem; background: #0a0a0a; z-index: 100;
+            border-bottom: 1px solid #222;
+        }
+
+        /* === 屏幕容器 === */
+        .screen-container {
+            flex: 1; position: relative; overflow: hidden; background-color: #050505;
+            background-image: linear-gradient(#111 1px, transparent 1px), linear-gradient(90deg, #111 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        /* === APP 通用容器 === */
+        .app-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #080808; z-index: 50;
+            transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.2, 0.0, 0.2, 1);
+            display: flex; flex-direction: column;
+        }
+        .app-screen.active { transform: translateX(0); }
+
+        .app-header {
+            height: 50px; border-bottom: 1px solid #222; display: flex; align-items: center; padding: 0 10px;
+            font-weight: bold; font-size: 1rem; color: #fff; background: #0f0f0f; justify-content: space-between;
+            z-index: 10;
+        }
+        .back-btn {
+            font-family: 'Share Tech Mono'; color: var(--neon-blue); cursor: pointer;
+            padding: 8px 12px; font-size: 0.9rem; display: flex; align-items: center; gap:5px;
+        }
+        .back-btn:active { background:rgba(0, 243, 255, 0.1); }
+        .app-content { flex: 1; overflow-y: auto; padding: 15px; position: relative; color: #ddd; }
+
+        /* === 主页 === */
+        #home-view { width: 100%; height: 100%; display: flex; flex-direction: column; padding: 20px 15px; }
+        .clock-widget { text-align: center; margin: 20px 0 30px; color: #fff; }
+        .clock-time { font-family: 'Orbitron'; font-size: 3.8rem; text-shadow: 0 0 15px rgba(0, 243, 255, 0.2); line-height: 1; }
+        .clock-date { color: #666; font-family: 'Share Tech Mono'; font-size: 0.9rem; margin-top: 10px; }
+
+        .grid-area { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 10px; padding-bottom: 20px; }
+        
+        .dock-area {
+            margin-top: auto; background: rgba(255,255,255,0.03); border-radius: 20px;
+            padding: 12px; display: flex; justify-content: space-around;
+            backdrop-filter: blur(5px); border: 1px solid #222;
+        }
+
+        .icon-btn { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; position: relative; }
+        .icon-box {
+            width: 56px; height: 56px; border-radius: 14px; background: #1a1a1a;
+            display: flex; justify-content: center; align-items: center; font-size: 1.6rem;
+            border: 1px solid #333; transition: 0.1s; position: relative;
+        }
+        .icon-btn:active .icon-box { transform: scale(0.95); filter: brightness(1.2); }
+        .icon-label { font-size: 0.65rem; color: #888; text-align: center; white-space: nowrap; max-width: 60px; overflow: hidden; text-overflow: ellipsis;}
+        
+        .badge {
+            position: absolute; top: -5px; right: -5px; background: var(--neon-red); color: #fff;
+            font-size: 0.6rem; width: 18px; height: 18px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center; font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.8); z-index: 2; transition: opacity 0.3s;
+        }
+
+        /* 颜色类 */
+        .c-phone { background: linear-gradient(135deg, #134e5e, #71b280); color: #fff; }
+        .c-msg { background: linear-gradient(135deg, #2b5876, #4e4376); color: #fff; }
+        .c-set { background: linear-gradient(135deg, #232526, #414345); color: #ddd; }
+        .c-cam { background: #000; color: #fff; border: 1px solid #444; }
+        
+        .c-shop { background: var(--neon-yellow); color: #000; border:none; }
+        .c-wallet { background: var(--neon-green); color: #000; border:none; }
+        .c-note { background: #FF9800; color: #000; border:none; }
+        .c-gallery { background: linear-gradient(135deg, #833ab4, #fd1d1d); color: #fff; border:none; }
+        
+        .c-web { background: rgba(0, 243, 255, 0.1); color: var(--neon-blue); border:1px solid #005555; }
+        .c-novel { background: #5d4037; color: #d7ccc8; border:none; }
+        .c-qq { background: #12b7f5; color: #fff; border:none; }
+        .c-pili { background: #fb7299; color: #fff; border:none; }
+        .c-food { background: #ff9800; color: #fff; border:none; }
+
+
+        /* === 电话 APP (拨号盘) === */
+        .dial-display {
+            font-size: 2rem; color: #fff; text-align: center; margin-bottom: 20px; 
+            height: 60px; line-height: 60px; border-bottom: 1px solid #333; font-family: 'Share Tech Mono';
+        }
+        .dial-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-width: 280px; margin: 0 auto; }
+        .dial-num {
+            width: 65px; height: 65px; border-radius: 50%; background: #1a1a1a; color: #fff;
+            display: flex; justify-content: center; align-items: center; font-size: 1.5rem;
+            margin: 0 auto; cursor: pointer; border: 1px solid #333; transition:0.1s;
+        }
+        .dial-num:active { background: #fff; color: #000; }
+        .call-btn {
+            grid-column: span 3; width: 65px; height: 65px; border-radius: 50%; 
+            background: var(--neon-green); color: #000; font-size: 1.5rem; margin: 15px auto 0;
+            display: grid; place-items: center;
+        }
+
+        /* === 钱包 APP === */
+        .wallet-card {
+            background: linear-gradient(135deg, #111, #222); border: 1px solid var(--neon-green);
+            border-radius: 10px; padding: 20px; margin-bottom: 20px; position: relative;
+        }
+        .balance-amount { font-size: 2rem; color: #fff; font-family: 'Share Tech Mono'; text-shadow: 0 0 10px rgba(0,255,0,0.3); }
+        .trans-item { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 10px 0; border-bottom: 1px solid #222; }
+        .trans-val.minus { color: var(--neon-red); }
+        .trans-val.plus { color: var(--neon-green); }
+
+        /* === 商店 === */
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .shop-item { background: #111; padding: 10px; border: 1px solid #333; text-align: center; position: relative; overflow: hidden; }
+        .buy-btn { width: 100%; padding: 6px; background: #222; border: 1px solid #444; color: #fff; margin-top: 5px; cursor: pointer; font-size: 0.8rem; }
+        .buy-btn:active { background: var(--neon-green); color: #000; }
+        .item-desc { font-size: 0.6rem; color: #666; margin-top: 4px; display: none; }
+        .shop-item:hover .item-desc { display: block; }
+        
+        /* === 图库 & 备忘录 === */
+        #gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        .gallery-item {
+            width: 100%; aspect-ratio: 1; background: #222; border: 1px solid #333; overflow: hidden;
+            display: flex; justify-content: center; align-items: center; color: #444; position: relative;
+        }
+        .gallery-item img { width: 100%; height: 100%; object-fit: cover; }
+        #note-input { width: 100%; height: 100%; background: transparent; border: none; color: #ddd; font-size: 1rem; line-height: 1.6; resize: none; }
+
+        /* === 设置 APP (修复版) === */
+        /* 确保设置项是垂直排列的块 */
+        .settings-list {
+            display: flex; flex-direction: column; width: 100%;
+        }
+        .settings-item {
+            width: 100%;
+            padding: 18px 15px; 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* 增加透明度让线条更融合 */
+            background: rgba(255, 255, 255, 0.02); /* 给一个微弱的背景色区分 */
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            font-size: 0.95rem; 
+            cursor: pointer; 
+            color: #eee;
+            margin-bottom: 2px; /* 增加一点间距 */
+        }
+        .settings-item:active { background: rgba(0, 243, 255, 0.1); }
+        .arrow { color: #666; font-family: monospace; }
+
+
+        /* === 短讯 APP (V1.2 修复版) === */
+        .msg-list-view, .msg-detail-view, .compose-view { display: flex; flex-direction: column; height: 100%; }
+        .msg-detail-view, .compose-view { display: none; }
+        
+        .msg-item { 
+            background: #151515; padding: 15px; border-radius: 8px; border-left: 3px solid transparent; 
+            cursor: pointer; margin-bottom:10px; border: 1px solid #222; /* 增加边框防粘连 */
+        }
+        .msg-item.unread { border-left-color: var(--neon-red); background: #1e1a1a; }
+        .msg-sender { font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; color:#fff; }
+        .msg-time { font-size: 0.7rem; color: #666; font-family: 'Share Tech Mono'; }
+        .msg-preview { color: #888; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* 发送中/失败状态 */
+        .msg-item.sending .msg-time { color: var(--neon-blue); }
+        .msg-item.failed { border-left-color: var(--neon-red); }
+        .msg-item.failed .msg-time { color: var(--neon-red); font-weight: bold; }
+        
+        .chat-bubble { 
+            padding: 10px 15px; border-radius: 4px; margin-bottom: 10px; max-width: 85%; 
+            font-size: 0.9rem; line-height: 1.4; 
+            word-break: break-word; /* 修复文字不换行 BUG */
+        }
+        .chat-bubble.receive { background: #222; color: #ddd; align-self: flex-start; border: 1px solid #333; border-left: 3px solid var(--neon-red); }
+        .chat-bubble.sent { background: #004444; color: #fff; align-self: flex-end; }
+        .chat-container { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding-top:10px; }
+
+        /* 新建按钮样式 */
+        .new-msg-btn {
+            width: 30px; height: 30px; border: 1px dashed #555; color: #fff; 
+            display: flex; justify-content: center; align-items: center; 
+            cursor: pointer; font-size: 1.2rem; transition: 0.2s;
+        }
+        .new-msg-btn:hover { border-color: var(--neon-blue); color: var(--neon-blue); }
+
+        /* === 故障 & 错误界面 === */
+        .overlay-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;
+            background: #000; display: none; flex-direction: column; justify-content: center; align-items: center;
+            font-family: 'Share Tech Mono'; text-align: center; padding: 20px;
+        }
+        .error-icon { font-size: 4rem; color: var(--neon-red); margin-bottom: 20px; animation: glitch 0.5s infinite; }
+        .error-title { font-size: 1.5rem; color: #fff; margin-bottom: 10px; font-weight: bold; }
+        .error-code { color: #555; font-size: 0.8rem; margin-bottom: 20px; }
+        .error-desc { color: var(--neon-red); font-size: 0.9rem; border: 1px solid var(--neon-red); padding: 10px; background: rgba(255, 42, 42, 0.1); }
+        
+        /* 拨号失败界面 */
+        .call-fail-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1100;
+            background: linear-gradient(to bottom, #200 0%, #000 100%); display: none;
+            flex-direction: column; align-items: center; padding-top: 50px;
+        }
+        .call-avatar { width: 100px; height: 100px; border-radius: 50%; background: #300; border: 2px solid var(--neon-red); display: grid; place-items: center; font-size: 2rem; color: #f00; margin-bottom: 20px; }
+        .call-status { color: var(--neon-red); font-size: 1.2rem; margin-bottom: 5px; animation: blink 1s infinite; }
+        .call-info { color: #fff; font-size: 1.5rem; font-weight: bold; margin-bottom: 40px; }
+        .call-end-btn { width: 70px; height: 70px; border-radius: 50%; background: #f00; display: grid; place-items: center; font-size: 2rem; color: #fff; cursor: pointer; box-shadow: 0 0 20px #f00; }
+
+        @keyframes glitch { 0% { transform: translate(0); } 20% { transform: translate(-2px, 2px); } 40% { transform: translate(-2px, -2px); } 60% { transform: translate(2px, 2px); } 80% { transform: translate(2px, -2px); } 100% { transform: translate(0); } }
+        @keyframes blink { 50% { opacity: 0.5; } }
+
+        /* === 吐司通知 === */
+        .sys-toast {
+            position: absolute; top: 60px; left: 50%; transform: translateX(-50%); width: 85%;
+            background: rgba(10, 10, 10, 0.95); border: 1px solid #333; border-left: 4px solid var(--neon-blue);
+            color: #fff; padding: 12px; z-index: 2000; font-size: 0.85rem; text-align: center;
+            box-shadow: 0 10px 30px #000; animation: slideDown 0.3s; pointer-events: none;
+        }
+        @keyframes slideDown { from {top: 40px; opacity:0} to {top: 60px; opacity:1} }
+    </style>
+</head>
+<body>
+
+<div class="phone-case">
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <div id="app-loader">
+        <div class="spinner"></div>
+        <div class="loading-text">CONNECTING...</div>
+    </div>
+
+    <div id="crash-overlay" class="overlay-screen" onclick="closeCrash()">
+        <div class="error-icon">⚠</div>
+        <div class="error-title">CONNECTION LOST</div>
+        <div class="error-code">ERR_NETWORK_UNREACHABLE // 0x503</div>
+        <div class="error-desc">
+            无法连接至 Sion_Net<br>
+            ----------------<br>
+            您的区域 [Sector-4] 信号已被屏蔽。<br>
+            请检查您的义体网络接口。
+        </div>
+        <div style="margin-top:30px; font-size:0.8rem; color:#444;">[ 点击屏幕重启系统 ]</div>
+    </div>
+
+    <div id="call-fail-overlay" class="call-fail-screen">
+        <div class="call-avatar">🚫</div>
+        <div class="call-status">通话已阻断</div>
+        <div class="call-info">服务中心</div>
+        <div style="width:80%; border:1px solid #500; background:rgba(50,0,0,0.5); padding:15px; margin-bottom:40px; text-align:center;">
+            <div style="color:#f55; font-size:0.8rem; margin-bottom:5px;">TERMINATION REASON</div>
+            <div style="color:#fff; font-family:'Share Tech Mono';">INSUFFICIENT_FUNDS</div>
+            <div style="color:#888; font-size:0.7rem; margin-top:5px;">欠费金额: 12,450 CR</div>
+        </div>
+        <div class="call-end-btn" onclick="endCall()">📞</div>
+    </div>
+
+    <div class="status-bar">
+        <span>SION_NET <span style="color:var(--neon-red)">!</span></span>
+        <span id="clock-top">12:00</span>
+        <span>🔋 7%</span>
+    </div>
+
+    <div class="screen-container">
+        
+        <div id="home-view">
+            <div class="clock-widget">
+                <div class="clock-time" id="clock-main">12:00</div>
+                <div class="clock-date">1月11日 // 周日</div>
+            </div>
+
+            <div class="grid-area">
+                <div class="icon-btn" onclick="openApp('wallet')">
+                    <div class="icon-box c-wallet">💳</div><div class="icon-label">钱包</div>
+                </div>
+                <div class="icon-btn" onclick="openApp('shop')">
+                    <div class="icon-box c-shop">🛒</div><div class="icon-label">杂货铺</div>
+                </div>
+                <div class="icon-btn" onclick="openApp('gallery')">
+                    <div class="icon-box c-gallery">🖼️</div><div class="icon-label">图库</div>
+                </div>
+                <div class="icon-btn" onclick="openApp('notes')">
+                    <div class="icon-box c-note">📝</div><div class="icon-label">备忘录</div>
+                </div>
+
+                <div class="icon-btn" onclick="window.location.href='https://noneofrider-jpg.github.io/TRPG/%E7%BB%88%E7%AB%AF.html'">
+                    <div class="icon-box c-web">🌐</div><div class="icon-label">地图</div>
+                </div>
+                <div class="icon-btn" onclick="window.location.href='https://noneofrider-jpg.github.io/TRPG/%E5%A1%9E%E6%81%A9%E5%B8%822.html'">
+                    <div class="icon-box c-web">🆔</div><div class="icon-label">档案局</div>
+                </div>
+                <div class="icon-btn" onclick="window.location.href='https://noneofrider-jpg.github.io/TRPG/V.H.Co.html'">
+                    <div class="icon-box c-web">💬</div><div class="icon-label">V.H.Co</div>
+                </div>
+                
+                <div class="icon-btn" onclick="openCrashApp()">
+                     <div class="icon-box c-novel">📖</div><div class="icon-label">SionReader</div>
+                </div>
+                <div class="icon-btn" onclick="openCrashApp()">
+                     <div class="icon-box c-qq">🐧</div><div class="icon-label">Q-Link</div>
+                </div>
+                <div class="icon-btn" onclick="openCrashApp()">
+                     <div class="icon-box c-pili">📺</div><div class="icon-label">Pili-Pili</div>
+                </div>
+                <div class="icon-btn" onclick="openCrashApp()">
+                     <div class="icon-box c-food">🍔</div><div class="icon-label">FeedMe</div>
+                </div>
+            </div>
+
+            <div class="dock-area">
+                <div class="icon-btn" onclick="openApp('phone')">
+                    <div class="icon-box c-phone">📞</div>
+                </div>
+                <div class="icon-btn" onclick="openMsgApp()">
+                    <div class="icon-box c-msg">💬</div>
+                    <div class="badge" id="msg-badge">1</div>
+                </div>
+                <div class="icon-btn" onclick="openApp('settings')">
+                    <div class="icon-box c-set">⚙️</div>
+                </div>
+                <div class="icon-btn" onclick="openApp('camera')">
+                    <div class="icon-box c-cam">📷</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-wallet" class="app-screen">
+            <div class="app-header">
+                <div class="back-btn" onclick="closeApp('wallet')">&lt; 返回</div><span>资产管理</span><div></div>
+            </div>
+            <div class="app-content">
+                <div class="wallet-card">
+                    <div style="font-size:0.8rem; color:#888;">当前可用余额</div>
+                    <div class="balance-amount"><span id="wallet-num">1000.00</span> CR</div>
+                </div>
+                <div style="font-size:0.8rem; color:#666; margin-bottom:10px;">最近交易记录</div>
+                <div id="trans-container">
+                    <div class="trans-item">
+                        <div style="color:#ccc;">工资收入 (V.H.Co)</div>
+                        <div class="trans-val plus">+ 1,500.00</div>
+                    </div>
+                    <div class="trans-item">
+                        <div style="color:#ccc;">房租自动扣除</div>
+                        <div class="trans-val minus">- 800.00</div>
+                    </div>
+                    <div class="trans-item">
+                        <div style="color:#ccc;">自动售货机</div>
+                        <div class="trans-val minus">- 10.00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-msg" class="app-screen">
+            <div class="app-header">
+                <div class="back-btn" onclick="closeApp('msg')">&lt; 返回</div>
+                <span id="msg-title">收件箱</span>
+                <div class="new-msg-btn" onclick="showCompose()">+</div>
+            </div>
+            <div class="app-content">
+                <div id="msg-list" class="msg-list-view">
+                    <div id="new-msg-anchor"></div>
+
+                    <div class="msg-item unread" onclick="openMsgDetail(0)">
+                        <div class="msg-sender"><span>信用管理局</span><span class="msg-time">昨天</span></div>
+                        <div class="msg-preview">【严重警告】公民 ID_UNREGIS...</div>
+                    </div>
+                    <div class="msg-item" onclick="openMsgDetail(1)">
+                        <div class="msg-sender"><span>老杰克</span><span class="msg-time">1月5日</span></div>
+                        <div class="msg-preview">那批货什么时候到？买家催了。</div>
+                    </div>
+                </div>
+
+                <div id="msg-detail" class="msg-detail-view">
+                    <div style="padding:10px 0; border-bottom:1px solid #222; margin-bottom:10px; color:#aaa; font-size:0.8rem; display:flex; justify-content:space-between;">
+                        <span id="detail-sender">发送者</span>
+                        <span onclick="closeDetail()" style="color:var(--neon-blue); cursor:pointer;">关闭</span>
+                    </div>
+                    <div class="chat-container" id="detail-content"></div>
+                    <div style="margin-top:auto; padding-top:10px;">
+                        <input type="text" placeholder="连接已阻断 (欠费)" disabled style="width:100%; background:#111; border:1px solid #333; padding:10px; color:#555;">
+                    </div>
+                </div>
+
+                <div id="msg-compose" class="compose-view">
+                    <div style="margin-bottom:15px;">
+                        <div style="font-size:0.8rem; color:#666; margin-bottom:5px;">收件人:</div>
+                        <input type="text" id="compose-to" style="width:100%; background:#000; border:1px solid #333; color:#fff; padding:10px;" placeholder="终端序列号...">
+                    </div>
+                    <div style="flex:1;">
+                        <textarea id="compose-txt" style="width:100%; height:100%; background:#000; border:1px solid #333; color:#fff; padding:10px; resize:none;" placeholder="输入加密信息..."></textarea>
+                    </div>
+                    <button class="buy-btn" onclick="triggerSendLogic()" style="margin-top:10px; background:var(--neon-blue); color:#000; font-weight:bold;">发送</button>
+                    <div style="text-align:center; margin-top:10px; color:#666; font-size:0.8rem; cursor:pointer;" onclick="hideCompose()">取消</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-phone" class="app-screen">
+            <div class="app-header">
+                <div class="back-btn" onclick="closeApp('phone')">&lt; 返回</div><span>拨号</span><div></div>
+            </div>
+            <div class="app-content" style="display:flex; flex-direction:column; justify-content:flex-end;">
+                <div class="dial-display" id="dial-text"></div>
+                <div class="dial-pad">
+                    <div class="dial-num" onclick="typeNum('1')">1</div><div class="dial-num" onclick="typeNum('2')">2</div><div class="dial-num" onclick="typeNum('3')">3</div>
+                    <div class="dial-num" onclick="typeNum('4')">4</div><div class="dial-num" onclick="typeNum('5')">5</div><div class="dial-num" onclick="typeNum('6')">6</div>
+                    <div class="dial-num" onclick="typeNum('7')">7</div><div class="dial-num" onclick="typeNum('8')">8</div><div class="dial-num" onclick="typeNum('9')">9</div>
+                    <div class="dial-num" onclick="typeNum('*')">*</div><div class="dial-num" onclick="typeNum('0')">0</div><div class="dial-num" onclick="typeNum('#')">#</div>
+                    <div class="call-btn" onclick="makeCall()">📞</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-settings" class="app-screen">
+            <div class="app-header"><div class="back-btn" onclick="closeApp('settings')">&lt; 返回</div><span>设置</span><div></div></div>
+            <div class="app-content" style="padding:0;">
+                <div class="settings-list">
+                    <div class="settings-item" onclick="lockCheck()"><span>显示与亮度</span><span class="arrow">></span></div>
+                    <div class="settings-item" onclick="lockCheck()"><span>声音与触感</span><span class="arrow">></span></div>
+                    <div class="settings-item" onclick="lockCheck()"><span>网络节点</span><span class="arrow">></span></div>
+                    <div class="settings-item" onclick="lockCheck()"><span>义体管理</span><span class="arrow">></span></div>
+                    <div class="settings-item" onclick="lockCheck()"><span>神经连接 (Neural Link)</span><span class="arrow">></span></div>
+                    <div class="settings-item" onclick="lockCheck()"><span>存储空间</span><span class="arrow">></span></div>
+                    <div class="settings-item" onclick="lockCheck()"><span>隐私与安全</span><span class="arrow">></span></div>
+                </div>
+                <div style="padding:30px; color:#555; text-align:center; font-size:0.8rem;">
+                    SionOS Ver 7.0.0<br>ID: UNREGISTERED<br>Kernel: PANIC_MODE
+                </div>
+            </div>
+             <div id="pwd-modal" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:none; justify-content:center; align-items:center;">
+                <div style="background:#111; border:1px solid var(--neon-red); padding:20px; width:80%; text-align:center;">
+                    <div style="color:var(--neon-red); margin-bottom:10px;">⚠️ 身份验证</div>
+                    <div style="color:#aaa; font-size:0.8rem;">请输入管理员密码</div>
+                    <input type="password" id="admin-pwd" style="width:100%; background:#000; border:1px solid #555; color:#fff; padding:10px; margin:15px 0; text-align:center;">
+                    <button onclick="checkPwd()" style="background:var(--neon-red); border:none; color:#fff; padding:8px 20px;">解锁</button>
+                    <button onclick="document.getElementById('pwd-modal').style.display='none'" style="background:#333; border:none; color:#fff; padding:8px 20px; margin-left:10px;">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-shop" class="app-screen">
+            <div class="app-header"><div class="back-btn" onclick="closeApp('shop')">&lt; 返回</div><span>杂货铺</span><div></div></div>
+            <div class="app-content">
+                <div class="shop-grid">
+                    <div class="shop-item">
+                        <div style="font-size:2rem;">🚁</div>
+                        <div style="font-size:0.8rem; color:#ccc; margin:5px 0;">牢大冰红茶</div>
+                        <div class="shop-price">24 CR</div>
+                        <div class="item-desc">喝了之后很想开直升机。</div>
+                        <button class="buy-btn" onclick="buyItem(24, '牢大冰红茶')">购买</button>
+                    </div>
+                    <div class="shop-item">
+                        <div style="font-size:2rem;">🐔</div>
+                        <div style="font-size:0.8rem; color:#ccc; margin:5px 0;">只因红烧鸡</div>
+                        <div class="shop-price">2.5 CR</div>
+                        <div class="item-desc">选用练习时长两年半的黑羽鸡。</div>
+                        <button class="buy-btn" onclick="buyItem(2.5, '只因红烧鸡')">购买</button>
+                    </div>
+                    <div class="shop-item">
+                        <div style="font-size:2rem;">🍉</div>
+                        <div style="font-size:0.8rem; color:#ccc; margin:5px 0;">华强劈瓜刀</div>
+                        <div class="shop-price">99 CR</div>
+                        <div class="item-desc">这瓜保熟吗？</div>
+                        <button class="buy-btn" onclick="buyItem(99, '华强劈瓜刀')">购买</button>
+                    </div>
+                    <div class="shop-item">
+                        <div style="font-size:2rem;">🔪</div>
+                        <div style="font-size:0.8rem; color:#ccc; margin:5px 0;">拼夕夕砍刀</div>
+                        <div class="shop-price">0 CR</div>
+                        <div class="item-desc">差一刀就能免费拿走。</div>
+                        <button class="buy-btn" onclick="buyItem(0, '拼夕夕砍刀')">购买</button>
+                    </div>
+                     <div class="shop-item">
+                        <div style="font-size:2rem;">🍗</div>
+                        <div style="font-size:0.8rem; color:#ccc; margin:5px 0;">V我50套餐</div>
+                        <div class="shop-price">50 CR</div>
+                        <div class="item-desc">疯狂星期四，不用复仇。</div>
+                        <button class="buy-btn" onclick="buyItem(50, 'V我50套餐')">购买</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-gallery" class="app-screen">
+            <div class="app-header">
+                <div class="back-btn" onclick="closeApp('gallery')">&lt; 返回</div>
+                <span>图库</span>
+                <label class="back-btn" style="color:#fff; border:1px dashed #555; cursor:pointer;">
+                    导入 <input type="file" id="img-upload" style="display:none" accept="image/*" onchange="importImg(this)">
+                </label>
+            </div>
+            <div class="app-content">
+                <div id="gallery-grid">
+                    <div class="gallery-item" style="border:1px dashed #333;">
+                        <span style="font-size:0.7rem; color:#444;">DATA_LOST</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-notes" class="app-screen">
+            <div class="app-header"><div class="back-btn" onclick="closeApp('notes')">&lt; 返回</div><span>备忘录</span><div></div></div>
+            <div class="app-content" style="padding:0;"><textarea id="note-input" placeholder="点击输入..." oninput="saveNote()"></textarea></div>
+        </div>
+
+        <div id="app-camera" class="app-screen">
+            <div class="app-header"><div class="back-btn" onclick="closeApp('camera')">&lt; 返回</div><span>相机</span><div></div></div>
+            <div class="app-content" style="background:#000; display:flex; justify-content:center; align-items:center; color:#555;"><div>☠️ SENSOR ERROR</div></div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // === 时钟 ===
+    function updateClock() {
+        const now = new Date();
+        const h = String(now.getHours()).padStart(2, '0');
+        const m = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('clock-top').innerText = `${h}:${m}`;
+        document.getElementById('clock-main').innerText = `${h}:${m}`;
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    // === 应用管理 (含故障逻辑) ===
+    function openApp(appId) {
+        const loader = document.getElementById('app-loader');
+        loader.style.display = 'flex';
+        setTimeout(() => {
+            loader.style.display = 'none';
+            document.getElementById(`app-${appId}`).classList.add('active');
+        }, 500);
+    }
+    
+    // 崩溃型应用
+    function openCrashApp() {
+        const loader = document.getElementById('app-loader');
+        loader.style.display = 'flex';
+        setTimeout(() => {
+            loader.style.display = 'none';
+            document.getElementById('crash-overlay').style.display = 'flex';
+        }, 1500);
+    }
+    function closeCrash() { document.getElementById('crash-overlay').style.display = 'none'; }
+
+    function closeApp(appId) {
+        document.getElementById(`app-${appId}`).classList.remove('active');
+        if(appId === 'msg') hideCompose();
+    }
+    function openMsgApp() {
+        const badge = document.getElementById('msg-badge');
+        if(badge) badge.style.opacity = '0';
+        openApp('msg');
+    }
+
+    // === 电话 ===
+    function typeNum(n) {
+        const display = document.getElementById('dial-text');
+        if(display.innerText.length < 15) display.innerText += n;
+    }
+    function makeCall() {
+        // 显示拨号失败全屏
+        document.getElementById('call-fail-overlay').style.display = 'flex';
+    }
+    function endCall() {
+        document.getElementById('call-fail-overlay').style.display = 'none';
+    }
+
+    // === 短信逻辑 ===
+    const msgs = [
+        { sender: "信用管理局", content: "<div class='chat-bubble receive'>【信用局】严重警告：<br>您的信用评级已跌破阈值（E-）。债务总额 12,450 CR 已移交 [黑狗债务处理公司] 执行强制清算。</div><div class='chat-bubble receive'>若 24 小时内未结清，将强制启动义体远程停摆协议。请好自为之。</div>" },
+        { sender: "老杰克", content: "<div class='chat-bubble sent'>货准备好了吗？</div><div class='chat-bubble receive'>那批货什么时候到？买家催了。再不来我就把你的位置卖给Neo执行队。</div>" }
+    ];
+
+    function openMsgDetail(index) {
+        document.getElementById('msg-list').style.display = 'none';
+        document.getElementById('msg-detail').style.display = 'flex';
+        document.getElementById('detail-sender').innerText = msgs[index].sender;
+        document.getElementById('detail-content').innerHTML = msgs[index].content;
+    }
+    function closeDetail() {
+        document.getElementById('msg-list').style.display = 'flex';
+        document.getElementById('msg-detail').style.display = 'none';
+    }
+    function showCompose() { document.getElementById('msg-list').style.display = 'none'; document.getElementById('msg-compose').style.display = 'flex'; document.getElementById('msg-title').innerText = "新信息"; }
+    function hideCompose() { document.getElementById('msg-list').style.display = 'flex'; document.getElementById('msg-compose').style.display = 'none'; document.getElementById('msg-title').innerText = "收件箱"; }
+    
+    // 真实发送模拟逻辑
+    function triggerSendLogic() {
+        const to = document.getElementById('compose-to').value;
+        const txt = document.getElementById('compose-txt').value;
+        if(!to || !txt) return;
+
+        // 1. 关闭撰写，回到列表
+        hideCompose();
+        
+        // 2. 插入一条“发送中”的消息
+        const list = document.getElementById('new-msg-anchor'); // 在最顶部插入
+        const tempId = Date.now();
+        
+        const div = document.createElement('div');
+        div.className = 'msg-item sending';
+        div.id = tempId;
+        div.innerHTML = `
+            <div class="msg-sender"><span>To: ${to}</span><span class="msg-time">⚪</span></div>
+            <div class="msg-preview">${txt}</div>
+        `;
+        // 插入到 anchor 后面
+        list.parentNode.insertBefore(div, list.nextSibling);
+
+        // 3. 3秒后变失败
+        setTimeout(() => {
+            const item = document.getElementById(tempId);
+            if(item) {
+                item.classList.remove('sending');
+                item.classList.add('failed');
+                item.querySelector('.msg-time').innerText = "❗";
+            }
+        }, 3000);
+    }
+
+    // === 钱包 & 商店 ===
+    let walletBalance = 1000.00;
+    function buyItem(price, name) {
+        if(walletBalance >= price) {
+            walletBalance -= price;
+            document.getElementById('wallet-num').innerText = walletBalance.toFixed(2);
+            const container = document.getElementById('trans-container');
+            const item = document.createElement('div');
+            item.className = 'trans-item';
+            item.innerHTML = `<div style="color:#ccc;">杂货铺: ${name}</div><div class="trans-val minus">- ${price.toFixed(2)}</div>`;
+            container.insertBefore(item, container.firstChild);
+            showToast(`✅ 购买成功`, 'var(--neon-green)');
+        } else {
+            showToast(`⚠️ 余额不足`, 'var(--neon-yellow)');
+        }
+    }
+
+    // === 备忘录 ===
+    if(localStorage.getItem('sion_note')) document.getElementById('note-input').value = localStorage.getItem('sion_note');
+    function saveNote() { localStorage.setItem('sion_note', document.getElementById('note-input').value); }
+
+    // === 图库导入 ===
+    function importImg(input) {
+        if(input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const grid = document.getElementById('gallery-grid');
+                const div = document.createElement('div');
+                div.className = 'gallery-item';
+                div.innerHTML = `<img src="${e.target.result}">`;
+                grid.appendChild(div);
+                showToast("✅ 数据导入成功", "var(--neon-green)");
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    // === 设置锁 ===
+    function lockCheck() { document.getElementById('pwd-modal').style.display = 'flex'; document.getElementById('admin-pwd').value = ''; }
+    function checkPwd() { showToast("❌ 密码错误", 'var(--neon-red)'); setTimeout(() => document.getElementById('pwd-modal').style.display = 'none', 800); }
+
+    // === 吐司通知 ===
+    function showToast(html, color) {
+        const old = document.querySelector('.sys-toast');
+        if(old) old.remove();
+        const toast = document.createElement('div');
+        toast.className = 'sys-toast';
+        toast.style.borderLeftColor = color;
+        toast.innerHTML = html;
+        document.querySelector('.phone-case').appendChild(toast);
+        setTimeout(() => toast.remove(), 2500);
+    }
+</script>
+</body>
+</html>
