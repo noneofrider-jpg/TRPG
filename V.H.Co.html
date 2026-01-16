@@ -35,6 +35,35 @@
         }
         @keyframes planeMove { from {transform: perspective(500px) rotateX(60deg) translateY(0);} to {transform: perspective(500px) rotateX(60deg) translateY(50px);} }
 
+/* --- 新增样式：断开连接按钮 --- */
+.btn-disconnect {
+    background: transparent;
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-family: 'Orbitron';
+    font-weight: bold;
+    cursor: pointer;
+    padding: 2px 8px;
+    transition: 0.3s;
+}
+.btn-disconnect:hover {
+    background: var(--red);
+    color: #000;
+    box-shadow: 0 0 10px var(--red);
+}
+
+/* --- 新增样式：结算页返回按钮 --- */
+.return-btn {
+    margin-top: 15px; /* 与复制按钮拉开距离 */
+    border-color: var(--primary);
+    color: var(--primary);
+}
+.return-btn:hover {
+    background: var(--primary);
+    color: #000;
+    box-shadow: 0 0 20px var(--primary);
+}
+
         /* --- 轮播容器 --- */
         .slider-container { width: 95%; max-width: 1100px; height: 75vh; position: relative; perspective: 1000px; }
 
@@ -51,7 +80,7 @@
         .slide.active { opacity: 1; transform: translateX(0) scale(1); pointer-events: all; z-index: 10; }
 
         .char-visual { flex: 1; position: relative; overflow: hidden; border-right: 2px solid rgba(255,255,255,0.1); }
-        .char-img { width: 100%; height: 100%; object-fit: cover; object-position: top; filter: saturate(0.8) contrast(1.1); transition: 0.5s; }
+        .char-img { width: 100%; height: 100%; object-fit: cover; object-position: center top; filter: saturate(0.8) contrast(1.1); transition: 0.5s; }
         .slide.active .char-img { transform: scale(1.05); }
 
         .char-data { flex: 0.9; padding: 40px; display: flex; flex-direction: column; justify-content: center; position: relative; }
@@ -240,9 +269,14 @@
         <div class="comm-interface" id="commInterface">
             <div class="comm-header">
                 <span id="chatTitle">SECURE CONNECTION</span>
-                <span class="comm-status" id="signalStatus">SIGNAL: 100%</span>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <span class="comm-status" id="signalStatus">SIGNAL: 100%</span>
+                    <button class="btn-disconnect" onclick="closeChat()">[ X ]</button>
+                </div>
             </div>
+            
             <div class="chat-history" id="chatHistory"></div>
+            
             <div class="options-area" id="optionsArea"></div>
         </div>
     </div>
@@ -256,6 +290,7 @@
         <div style="color:#aaa; font-family:'Courier New'; margin-top:20px;">ETA: 00:03:00</div>
         
         <button class="copy-btn" onclick="copyLog()">[ 复制通讯记录 (COPY LOG) ]</button>
+        <button class="copy-btn return-btn" onclick="resetSystem()">[ 返回终端首页 (REBOOT) ]</button>
         <div id="copyHint" style="color: var(--primary); font-size: 0.8rem; margin-top: 5px; opacity: 0; transition: 0.5s;">已复制！请发送给GM</div>
     </div>
 
@@ -547,7 +582,23 @@
                 setTimeout(() => hint.style.opacity = 0, 2000);
             });
         }
+/* --- 新增逻辑：返回控制 --- */
+
+// 关闭聊天窗口
+function closeChat() {
+    document.getElementById('chatOverlay').style.display = "none";
+    // 可选：清除当前聊天的打字机效果，防止后台报错
+    const typer = document.getElementById('typing');
+    if(typer) typer.remove();
+}
+
+// 重置系统（从结算画面返回）
+function resetSystem() {
+    document.getElementById('deployScreen').style.display = "none";
+    document.getElementById('chatOverlay').style.display = "none";
+    
+    // 可选：重置为第一个角色或保持当前位置，这里不做额外操作即可回到轮播页
+}
     </script>
 </body>
-
 </html>
