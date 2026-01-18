@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>高桌协定 // 档案录入 (HIGH TABLE // ARCHIVE ENTRY)</title>
+<style>
+    :root { 
+        --bg: #121212; 
+        --panel: #1e1e1e; 
+        --text: #e0e0e0; 
+        --gold: #c5a059; 
+        --gold-dim: #7a602e;
+        --red: #a81818;
+    }  
+    * { box-sizing: border-box; } 
+    
+    body { 
+        background: var(--bg); color: var(--text); 
+        font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+        margin: 0; padding: 20px;
+        display: flex; flex-direction: column; align-items: center;
+    }
+
+    .header { 
+        text-align: center; margin-bottom: 20px; 
+        border-bottom: 2px solid var(--gold); 
+        padding-bottom: 20px; width: 100%; max-width: 1200px;
+    }
+    .logo { 
+        font-size: 2em; letter-spacing: 2px; color: var(--gold); font-weight: bold;
+        text-transform: uppercase; margin-bottom: 5px;
+    }
+    
+    .main-container { display: flex; gap: 30px; width: 100%; max-width: 1500px; flex-wrap: wrap; justify-content: center; }
+    
+    /* 左侧输入区 */
+    .input-panel { 
+        flex: 1; min-width: 400px; background: var(--panel); 
+        padding: 30px; border-radius: 4px;
+        border-top: 4px solid var(--gold);
+    }
+    
+    .section-title { 
+        color: var(--gold); border-bottom: 1px dashed #444; 
+        padding-bottom: 5px; margin: 25px 0 15px 0; font-size: 1.1em; font-weight: bold;
+    }
+
+    .row { display: flex; gap: 15px; margin-bottom: 15px; }
+    .col { flex: 1; }
+    
+    label { display: block; font-size: 0.85em; color: #888; margin-bottom: 5px;}
+    
+    input, select, textarea { 
+        width: 100%; padding: 10px; background: #111; border: 1px solid #333; color: #fff; 
+        font-family: inherit; font-size: 0.95em; transition: 0.2s;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--gold); outline: none; }
+    textarea { height: 70px; resize: vertical; }
+
+    /* Tags */
+    .tag-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .tag {
+        font-size: 0.8em; padding: 5px 10px; border: 1px solid #444; color: #aaa; cursor: pointer; transition: 0.2s; border-radius: 20px;
+    }
+    .tag:hover { border-color: var(--gold); color: var(--gold); background: rgba(197, 160, 89, 0.1); }
+
+    /* 右侧预览区 */
+    .output-panel { flex: 1.2; display: flex; flex-direction: column; align-items: center; min-width: 450px; }
+    .preview-container {
+        width: 100%; max-width: 700px; 
+        aspect-ratio: 210 / 297; 
+        background: #fff; box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        overflow: hidden;
+    }
+    #result-img { width: 100%; height: 100%; display: block; object-fit: contain; }
+    
+    .btn-action {
+        width: 100%; padding: 15px; 
+        background: var(--gold); 
+        color: #000; border: none; font-weight: bold; font-size: 1.1em; cursor: pointer; margin-top: 20px;
+        border-radius: 4px;
+    }
+    .btn-action:hover { filter: brightness(1.1); }
+    
+    canvas { display: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="logo">高桌协定 // 综合档案终端</div>
+    <div style="color: #666; font-size: 0.9em;">HIGH TABLE PROTOCOL // GENERAL ARCHIVES</div>
+</div>
+
+<div class="main-container">
+    <div class="input-panel">
+        
+        <div class="row">
+            <div class="col"><label>档案编号 / FILE NO.</label><input type="text" id="fileNo" value="CNA-088X"></div>
+            <div class="col"><label>注册日期 / DATE</label><input type="date" id="regDate"></div>
+            <div class="col">
+                <label>当前状态 / STATUS</label>
+                <select id="status" onchange="generateArchive()">
+                    <option value="ACTIVE">活跃 (ACTIVE)</option>
+                    <option value="EXCOMMUNICADO">除名 (EXCOMMUNICADO)</option>
+                    <option value="DECEASED">死亡 (DECEASED)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="section-title">SECTION A: 基础识别 (IDENTITY)</div>
+        <div class="row">
+            <div class="col"><label>代号 / CODENAME</label><input type="text" id="codeName" value="GHOST"></div>
+            <div class="col"><label>掩饰身份 / ALIAS</label><input type="text" id="alias" value="Jane Doe"></div>
+        </div>
+        <div class="row">
+            <div class="col"><label>国籍 / NATIONALITY</label><input type="text" id="nation" value="Unknown"></div>
+            <div class="col"><label>生日 / D.O.B</label><input type="text" id="dob" value="1998.05.27"></div>
+            <div class="col"><label>语言 / LANGUAGES</label><input type="text" id="lang" value="中文, English, JP"></div>
+        </div>
+        <div class="row">
+            <div class="col"><label>身高 / HEIGHT (cm)</label><input type="text" id="height" value="170"></div>
+            <div class="col"><label>体重 / WEIGHT (kg)</label><input type="text" id="weight" value="55"></div>
+            <div class="col"><label>血型 / BLOOD</label><input type="text" id="blood" value="AB-"></div>
+        </div>
+        <label>头像上传 / PORTRAIT (3:4)</label>
+        <input type="file" id="avatarInput" accept="image/*">
+
+        <div class="section-title">SECTION B: 能力评估 (APTITUDE)</div>
+        
+        <label>主要专长 / PRIMARY EXPERTISE (建议不超过2项)</label>
+        <input type="text" id="pSkills" placeholder="自定义..." value="近身格斗 (CQC)">
+        <div class="tag-container">
+            <span class="tag" onclick="addSkill('pSkills', '格斗 (CQC)')">+ 格斗</span>
+            <span class="tag" onclick="addSkill('pSkills', '狙击 (Sniper)')">+ 狙击</span>
+            <span class="tag" onclick="addSkill('pSkills', '潜行 (Stealth)')">+ 潜行</span>
+            <span class="tag" onclick="addSkill('pSkills', '剑术 (Kenjutsu)')">+ 剑术</span>
+        </div>
+
+        <br>
+        <label>次要技能 / SECONDARY SKILLS (不限)</label>
+        <textarea id="sSkills" placeholder="自定义...">骇客 (Hacking), 驾驶 (Driving)</textarea>
+        <div class="tag-container">
+            <span class="tag" onclick="addSkill('sSkills', '骇客 (Hacking)')">+ 骇客</span>
+            <span class="tag" onclick="addSkill('sSkills', '急救 (Medic)')">+ 急救</span>
+            <span class="tag" onclick="addSkill('sSkills', '开锁 (Lockpicking)')">+ 开锁</span>
+            <span class="tag" onclick="addSkill('sSkills', '爆破 (Demo)')">+ 爆破</span>
+        </div>
+
+        <br>
+        <label>显著特征 / DISTINCTIVE MARKS (长文本自动换行)</label>
+        <input type="text" id="marks" value="右眼下有泪痣">
+
+        <div class="section-title">SECTION C: 背景与效忠 (BACKGROUND)</div>
+        <label>引荐人 / SPONSOR</label>
+        <input type="text" id="sponsor" value="N.G.S.K.S.Y.">
+        
+        <label style="margin-top:10px">个人信条 / PERSONAL CREDO</label>
+        <input type="text" id="credo" value="Memento Mori.">
+
+        <button class="btn-action" onclick="generateArchive()">>> 刷新档案预览 <<</button>
+    </div>
+
+    <div class="output-panel">
+        <div class="preview-container">
+            <img id="result-img" alt="预览">
+        </div>
+        <button class="btn-action" style="background: #333; color: #fff;" onclick="downloadArchive()">下载 PNG 图片</button>
+    </div>
+</div>
+
+<canvas id="archiveCanvas" width="1240" height="1754"></canvas>
+
+<script>
+    document.getElementById('regDate').valueAsDate = new Date();
+    
+    function addSkill(targetId, text) {
+        const el = document.getElementById(targetId);
+        let current = el.value;
+        if (current.includes(text)) return; 
+        if (current.length > 0) {
+            el.value = current + ", " + text;
+        } else {
+            el.value = text;
+        }
+        generateArchive();
+    }
+
+    let avatarImg = null;
+    document.getElementById('avatarInput').addEventListener('change', function(e) {
+        if(e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const img = new Image();
+                img.onload = () => { avatarImg = img; generateArchive(); }
+                img.src = evt.target.result;
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    });
+
+    document.querySelectorAll('input, select, textarea').forEach(el => {
+        el.addEventListener('input', generateArchive);
+    });
+
+    window.onload = function() { generateArchive(); }
+
+    function generateArchive() {
+        const canvas = document.getElementById('archiveCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width;
+        const H = canvas.height;
+
+        // 1. 背景
+        ctx.fillStyle = '#f7f5f0'; 
+        ctx.fillRect(0, 0, W, H);
+        
+        ctx.fillStyle = 'rgba(0,0,0,0.03)';
+        for(let i=0; i<W; i+=4) {
+            if(Math.random()>0.8) ctx.fillRect(i, 0, 1, H);
+        }
+
+        // 2. 边框
+        const margin = 70;
+        ctx.strokeStyle = '#111'; 
+        ctx.lineWidth = 5;
+        ctx.strokeRect(margin, margin, W - margin*2, H - margin*2);
+
+        // 3. 页眉
+        let y = margin + 80;
+        ctx.font = 'bold 50px "Microsoft YaHei"'; 
+        ctx.fillStyle = '#111'; ctx.textAlign = 'center';
+        ctx.fillText("高桌协定 // 综合档案终端", W/2, y);
+        
+        y += 40;
+        ctx.font = 'bold 24px "Arial"'; ctx.fillStyle = '#b08d55'; 
+        ctx.fillText("HIGH TABLE PROTOCOL // GENERAL ARCHIVES", W/2, y);
+
+        // 分割线
+        y += 40;
+        ctx.beginPath(); ctx.moveTo(margin+40, y); ctx.lineTo(W-margin-40, y); 
+        ctx.strokeStyle = '#ccc'; ctx.lineWidth=2; ctx.stroke();
+
+        // 4. 顶部信息
+        y += 50;
+        const col1 = margin + 40;
+        const col2 = 600; 
+
+        ctx.textAlign = 'left';
+        drawField(ctx, "档案编号 / FILE NO.", document.getElementById('fileNo').value, col1, y);
+        drawField(ctx, "注册日期 / DATE", document.getElementById('regDate').value, W/2 + 50, y);
+
+        // SECTION A: 基础识别
+        y += 80;
+        drawSectionHeader(ctx, "SECTION A: 基础识别 (IDENTITY)", col1, y, W-margin*2-80);
+        y += 70;
+
+        // --- 照片区域 ---
+        const photoW = 360; const photoH = 480;
+        ctx.fillStyle = '#e0e0e0'; ctx.fillRect(col1, y, photoW, photoH);
+        
+        if (avatarImg) {
+            drawCrop(ctx, avatarImg, col1, y, photoW, photoH);
+        } else {
+            ctx.fillStyle = '#999'; ctx.font = '24px "Microsoft YaHei"'; ctx.textAlign='center';
+            ctx.fillText("NO PHOTO / 暂无照片", col1 + photoW/2, y + photoH/2);
+        }
+        ctx.strokeStyle = '#222'; ctx.lineWidth = 3; ctx.strokeRect(col1, y, photoW, photoH);
+
+        // --- 印章逻辑 ---
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(col1, y, photoW, photoH); 
+        ctx.clip(); 
+        
+        const status = document.getElementById('status').value;
+        drawStamp(ctx, status, col1 + photoW/2, y + photoH/2); 
+        ctx.restore();
+
+        // --- 右侧文字信息 ---
+        let infoY = y + 10;
+        const infoX = col2;
+        const gap = 80;
+
+        drawField(ctx, "代号 / CODENAME", document.getElementById('codeName').value, infoX, infoY, true);
+        infoY += gap + 10;
+        drawField(ctx, "掩饰身份 / ALIAS", document.getElementById('alias').value, infoX, infoY);
+        infoY += gap;
+        drawField(ctx, "国籍 / NATIONALITY", document.getElementById('nation').value, infoX, infoY);
+        infoY += gap;
+        drawField(ctx, "生日 / D.O.B", document.getElementById('dob').value, infoX, infoY);
+        infoY += gap;
+        
+        drawField(ctx, "身高 / HT (cm)", document.getElementById('height').value, infoX, infoY);
+        drawField(ctx, "体重 / WT (kg)", document.getElementById('weight').value, infoX + 200, infoY);
+        drawField(ctx, "血型 / BLOOD", document.getElementById('blood').value, infoX + 400, infoY);
+
+        y += photoH + 60;
+
+        // SECTION B: 能力评估
+        drawSectionHeader(ctx, "SECTION B: 能力评估 (APTITUDE)", col1, y, W-margin*2-80);
+        y += 70;
+
+        const pText = document.getElementById('pSkills').value;
+        const sText = document.getElementById('sSkills').value;
+
+        ctx.textAlign = 'left';
+        
+        ctx.font = 'bold 22px "Microsoft YaHei"'; ctx.fillStyle = '#111';
+        ctx.fillText("主要专长 / PRIMARY EXPERTISE:", col1, y);
+        y += 45;
+        ctx.font = '26px "Microsoft YaHei"'; ctx.fillStyle = '#000';
+        y = wrapText(ctx, pText || "[ 未选择 ]", col1, y, W-margin*2-80, 40);
+        
+        y += 30;
+
+        ctx.font = 'bold 22px "Microsoft YaHei"'; ctx.fillStyle = '#111';
+        ctx.fillText("次要技能 / SECONDARY SKILLS:", col1, y);
+        y += 45;
+        ctx.font = '26px "Microsoft YaHei"'; ctx.fillStyle = '#000';
+        y = wrapText(ctx, sText || "[ 未选择 ]", col1, y, W-margin*2-80, 40);
+
+        y += 40;
+        
+        ctx.font = 'bold 22px "Microsoft YaHei"'; ctx.fillStyle = '#111';
+        ctx.fillText("显著特征 / DISTINCTIVE MARKS:", col1, y);
+        y += 45;
+        ctx.font = '26px "Microsoft YaHei"'; ctx.fillStyle = '#000';
+        y = wrapText(ctx, document.getElementById('marks').value, col1, y, W-margin*2-80, 40);
+
+        y += 50;
+
+        // SECTION C: 背景
+        drawSectionHeader(ctx, "SECTION C: 背景与效忠 (BACKGROUND)", col1, y, W-margin*2-80);
+        y += 70;
+
+        drawField(ctx, "引荐人 / SPONSOR", document.getElementById('sponsor').value, col1, y);
+        
+        // --- 修改点 3: 个人信条使用特殊字体 (花体/楷书) ---
+        // 绘制标题
+        ctx.font = 'bold 18px "Microsoft YaHei"'; 
+        ctx.fillStyle = '#666'; ctx.textAlign = 'left';
+        ctx.fillText("个人信条 / PERSONAL CREDO", W/2 + 50, y);
+        
+        // 绘制内容 (字体修改)
+        // 使用 "Brush Script MT" (Windows英文花体), "Segoe Script" (备用), "KaiTi" (中文楷体), "STKaiti" (Mac楷体)
+        ctx.font = '40px "Brush Script MT", "Segoe Script", "KaiTi", "STKaiti", cursive, serif'; 
+        ctx.fillStyle = '#111';
+        const credoText = '"' + document.getElementById('credo').value + '"';
+        ctx.fillText(credoText, W/2 + 50, y + 45);
+
+        // SECTION D: 验证
+        y += 60;
+        
+        const boxW = 180; const boxH = 220;
+        ctx.strokeStyle = '#888'; ctx.lineWidth = 1; ctx.setLineDash([5, 5]);
+        ctx.strokeRect(col1, y, boxW, boxH);
+        ctx.setLineDash([]); 
+
+        ctx.font = "14px Arial"; ctx.fillStyle = "#888"; ctx.textAlign = "center";
+        ctx.fillText("RIGHT THUMBPRINT", col1 + boxW/2, y + boxH - 10);
+        
+        drawBloodPrint(ctx, col1 + boxW/2, y + boxH/2);
+
+        // 底部官方印章
+        drawOfficialSeal(ctx, W - 200, H - 200);
+
+        updateOutput();
+    }
+
+    // --- 辅助函数 ---
+
+    function drawField(ctx, label, value, x, y, isBig = false, isItalic = false) {
+        ctx.font = 'bold 18px "Microsoft YaHei"'; 
+        ctx.fillStyle = '#666'; ctx.textAlign = 'left';
+        ctx.fillText(label, x, y);
+        
+        let fontStyle = isItalic ? 'italic ' : '';
+        let fontSize = isBig ? 'bold 36px' : '26px';
+        ctx.font = `${fontStyle}${fontSize} "Microsoft YaHei"`; 
+        ctx.fillStyle = '#111';
+        ctx.fillText(value, x, y + 35);
+    }
+
+    function drawSectionHeader(ctx, text, x, y, w) {
+        ctx.fillStyle = '#111'; 
+        ctx.fillRect(x, y, w, 40); 
+        ctx.fillStyle = '#c5a059'; 
+        ctx.font = 'bold 22px "Microsoft YaHei"';
+        ctx.textAlign = 'left';
+        ctx.fillText(text, x + 15, y + 28);
+    }
+
+    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+        let words = text.split(''); 
+        let line = '';
+        
+        for(let n = 0; n < words.length; n++) {
+            let testLine = line + words[n];
+            let metrics = ctx.measureText(testLine);
+            let testWidth = metrics.width;
+            if (testWidth > maxWidth && n > 0) {
+                ctx.fillText(line, x, y);
+                line = words[n];
+                y += lineHeight;
+            }
+            else {
+                line = testLine;
+            }
+        }
+        ctx.fillText(line, x, y);
+        return y; 
+    }
+
+    function drawCrop(ctx, img, x, y, w, h) {
+        const imgRatio = img.width/img.height; const targetRatio = w/h; let sx,sy,sw,sh;
+        if(imgRatio>targetRatio){ sh=img.height; sw=img.height*targetRatio; sy=0; sx=(img.width-sw)/2; }
+        else{ sw=img.width; sh=img.width/targetRatio; sx=0; sy=(img.height-sh)/2; }
+        ctx.drawImage(img,sx,sy,sw,sh,x,y,w,h);
+    }
+
+    // --- 修改点 1: 动态印章大小 ---
+    function drawStamp(ctx, text, x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(-Math.PI / 6); // 旋转30度
+        
+        let color = 'rgba(200, 0, 0, 0.7)'; 
+        if(text.includes('ACTIVE')) color = 'rgba(34, 139, 34, 0.7)'; 
+        if(text.includes('DECEASED')) color = 'rgba(0, 0, 0, 0.7)'; 
+
+        let stampText = text.split(' ')[1] || text; 
+        if(text.includes('ACTIVE')) stampText = 'ACTIVE';
+
+        // 设置字体
+        ctx.font = "900 38px Arial"; 
+        
+        // 测量文字宽度
+        const metrics = ctx.measureText(stampText);
+        const textW = metrics.width;
+        
+        // 根据文字宽度定义框的大小 (增加padding)
+        const padding = 20;
+        const boxW = textW + padding * 2;
+        const boxH = 70; // 高度保持不变
+
+        // 绘制矩形 (居中)
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 8;
+        ctx.rect(-boxW/2, -boxH/2, boxW, boxH);
+        ctx.stroke();
+
+        // 绘制文字
+        ctx.fillStyle = color;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(stampText, 0, 3);
+        ctx.restore();
+    }
+
+    function drawBloodPrint(ctx, x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 40, 60, Math.PI/12, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(139, 0, 0, 0.6)"; 
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // --- 修改点 2: 官方印章文字环绕 ---
+    function drawOfficialSeal(ctx, x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+
+        // 外圆
+        ctx.beginPath(); ctx.arc(0, 0, 70, 0, 2*Math.PI);
+        ctx.strokeStyle = "#c5a059"; ctx.lineWidth = 3; ctx.stroke();
+        
+        // 内圆 (可选，增加层次感)
+        ctx.beginPath(); ctx.arc(0, 0, 62, 0, 2*Math.PI);
+        ctx.strokeStyle = "#c5a059"; ctx.lineWidth = 1; ctx.stroke();
+
+        // 中间大字 HT
+        ctx.font = "bold 36px serif";
+        ctx.fillStyle = "#c5a059"; ctx.textAlign="center"; ctx.textBaseline = "middle";
+        ctx.fillText("HT", 0, 5);
+
+        // 环绕文字逻辑
+        const text = "HIGH TABLE // ADMIN";
+        ctx.font = "bold 13px Arial"; 
+        
+        // 旋转文字
+        const radius = 54; // 文字所在半径
+        const angleStep = 0.25; // 字符间距 (弧度)
+        // 让我们把文字放在上半圆，居中
+        // 计算总宽度对应的弧度大概是多少，为了居中
+        const totalAngle = (text.length - 1) * angleStep;
+        const startAngle = -Math.PI/2 - totalAngle/2; // 从顶部中心向左偏移一半
+
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            ctx.save();
+            // 旋转到字符的位置
+            const currentAngle = startAngle + i * angleStep;
+            ctx.rotate(currentAngle);
+            // 移到半径边缘
+            ctx.translate(0, -radius);
+            
+            ctx.fillStyle = "#c5a059";
+            ctx.fillText(char, 0, 0);
+            ctx.restore();
+        }
+
+        ctx.restore();
+    }
+
+    function updateOutput() {
+        document.getElementById('result-img').src = document.getElementById('archiveCanvas').toDataURL('image/png');
+    }
+
+    function downloadArchive() {
+        const link = document.createElement('a');
+        const code = document.getElementById('codeName').value || "UNKNOWN";
+        link.download = `ARCHIVE_${code}.png`;
+        link.href = document.getElementById('archiveCanvas').toDataURL('image/png');
+        link.click();
+    }
+</script>
+</body>
+</html>
